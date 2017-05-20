@@ -2,27 +2,25 @@
 #define CONVOLUTION_H
 
 #include <CL/sycl.hpp>
-template<typename T>
-struct volume {
-  vector<T> R;
-  vector<T> G;
-  vector<T> B;	
-}
 
-class conv_functor(int, int, int, volume){
-  int conv_size;
-  int stride;
-  int padding;
-  volume operator() (volume);
+using Volume = std::vector<std::vector<std::vector<float>>>;
+
+class conv_functor{
+  
+  public:
+    conv_functor(Volume weights){}
+    Volume operator() (Volume);
+  
   private:
-    volume weights;  
+    Volume weights;
+
 };
 
-class maxpool_functor(int, volume){
-  int pool_size;
-  int stride;
-  int padding;
-  volume operator() (volume);
+class maxpool_functor{
+  size_t size;
+  maxpool_functor(size_t size);
+  Volume operator() (Volume);
 };
 
+Volume rand_input_generator(size_t width, size_t height, size_t layers);
 #endif

@@ -1,6 +1,6 @@
 #include <ncurses.h>
 #include <fstream>
-//#include <convolution.h>
+#include <convolution.hpp>
 
 using namespace std;
 
