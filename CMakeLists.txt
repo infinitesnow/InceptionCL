@@ -1,5 +1,5 @@
 cmake_minimum_required ( VERSION 3.5 )
-project ( InceptionModule )
+project ( InceptionModule C CXX)
 add_executable( im im.cpp)
 
 # Include dependencies
