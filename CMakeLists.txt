@@ -6,11 +6,8 @@ include_directories("${PROJECT_SOURCE_DIR}/include")
 find_package( Threads )
 find_package( Curses )
 
-add_executable( im im.cpp include/convolution.cpp)
+add_executable( im "im.cpp" "include/convolution.cpp" "include/misc.cpp")
 target_link_libraries( im Threads::Threads ncurses ) 
-
-add_executable( cursestest cursestest.cpp)
-target_link_libraries( cursestest ncurses ) 
 
 # Add compiler options
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0") 

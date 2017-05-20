@@ -1,16 +1,13 @@
 #ifndef CONVOLUTION_H
 #define CONVOLUTION_H
 
-#include <CL/sycl.hpp>
-
-using namespace cl::sycl;
-
-typedef buffer<float,3> Volume;
+#include <misc.hpp>
 
 class conv_functor{
   
   public:
-    conv_functor(Volume weights) : weights{weights} {}
+    conv_functor(Volume weights,size_t size) : weights{weights},size(size) {}
+    size_t size;
     Volume operator() (Volume);
   
   private:
@@ -24,5 +21,6 @@ class maxpool_functor{
   Volume operator() (Volume);
 };
 
-Volume rand_input_generator(size_t width, size_t height, size_t layers);
+Volume convolve(Volume &v,size_t size,short stride,short padding);
+
 #endif
