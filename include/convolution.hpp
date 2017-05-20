@@ -22,5 +22,6 @@ class maxpool_functor{
 };
 
 Volume convolve(Volume &v,size_t size,short stride,short padding);
+Volume pad(Volume &input_volume,short padding);
 
 #endif

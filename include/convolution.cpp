@@ -3,6 +3,14 @@
 using namespace cl::sycl;
 
 Volume convolve(Volume &input_volume,size_t size,short stride,short padding){
+	Volume v = pad(input_volume,padding);
+	//
+	// TODO
+	//
+	return v;
+};
+
+Volume pad(Volume &input_volume,short padding){
   size_t input_width = input_volume.get_range().get(0);
   size_t input_height =  input_volume.get_range().get(1);
   size_t depth =  input_volume.get_range().get(2);
@@ -21,9 +29,20 @@ Volume convolve(Volume &input_volume,size_t size,short stride,short padding){
     q.submit( [&] (handler &cmdgroup) {
       auto input_a = input_volume.get_access<access::mode::read>(cmdgroup);
       auto padded_a = padded_volume.get_access<access::mode::write>(cmdgroup);
-      cmdgroup.parallel_for<class pad>( range<3>(input_width,input_height,depth),
+      cmdgroup.parallel_for<class pad>( range<3>(padded_width,padded_height,depth),
           	    [=] (id<3> index) {
-		    ;
+		    padded_a[index]=0;
+      });
+    });
+  }
+
+  {
+    q.submit( [&] (handler &cmdgroup) {
+      auto input_a = input_volume.get_access<access::mode::read>(cmdgroup);
+      auto padded_a = padded_volume.get_access<access::mode::write>(cmdgroup);
+      cmdgroup.parallel_for<class refill>( range<3>(input_width,input_height,depth),
+          	    [=] (id<3> index) {
+		    padded_a[index+id<3>(padding,padding,0)]=input_a[index];
       });
     });
   }
@@ -31,5 +50,7 @@ Volume convolve(Volume &input_volume,size_t size,short stride,short padding){
   clock_t time_b = clock();
 
   std::cout << "Operation completed in " << time_b-time_a << " ticks." << std::endl;
+
+  return padded_volume;
 
 };
