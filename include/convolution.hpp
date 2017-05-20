@@ -3,12 +3,14 @@
 
 #include <CL/sycl.hpp>
 
-using Volume = std::vector<std::vector<std::vector<float>>>;
+using namespace cl::sycl;
+
+typedef buffer<float,3> Volume;
 
 class conv_functor{
   
   public:
-    conv_functor(Volume weights){}
+    conv_functor(Volume weights) : weights{weights} {}
     Volume operator() (Volume);
   
   private:
