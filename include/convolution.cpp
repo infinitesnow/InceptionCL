@@ -2,41 +2,30 @@
 
 using namespace cl::sycl;
 
-Volume convolve(Volume &input_volume,size_t size,short stride,short padding){
-	Volume v = pad(input_volume,padding);
-	//
+Volume convolver::convolve(size_t size,short stride,short padding){
 	// TODO
-	//
-	return v;
+	pad(padding);	
+	Volume weights = generate_stub_weights<3>(depth);
+	return padded_volume;
 };
 
-Volume pad(Volume &input_volume,short padding){
-  size_t input_width = input_volume.get_range().get(0);
-  size_t input_height =  input_volume.get_range().get(1);
-  size_t depth =  input_volume.get_range().get(2);
-  size_t padded_width = input_width+2*padding;
-  size_t padded_height = input_height+2*padding;
- 
-  queue q;
+
+void convolver::pad(short padding){
+  padded_width = input_width+2*padding;
+  padded_height = input_height+2*padding;
 
   std::cout << "Padding volume" << std::endl;
 
   clock_t time_a = clock();
 
   Volume padded_volume( range<3>(padded_width,padded_height,depth) );
+  
+  initialize_volume(padded_volume,0);
 
   {
-    q.submit( [&] (handler &cmdgroup) {
-      auto input_a = input_volume.get_access<access::mode::read>(cmdgroup);
-      auto padded_a = padded_volume.get_access<access::mode::write>(cmdgroup);
-      cmdgroup.parallel_for<class pad>( range<3>(padded_width,padded_height,depth),
-          	    [=] (id<3> index) {
-		    padded_a[index]=0;
-      });
-    });
-  }
 
-  {
+    queue q;
+
     q.submit( [&] (handler &cmdgroup) {
       auto input_a = input_volume.get_access<access::mode::read>(cmdgroup);
       auto padded_a = padded_volume.get_access<access::mode::write>(cmdgroup);
@@ -51,6 +40,7 @@ Volume pad(Volume &input_volume,short padding){
 
   std::cout << "Operation completed in " << time_b-time_a << " ticks." << std::endl;
 
-  return padded_volume;
+  print_volume(padded_volume);
 
 };
+

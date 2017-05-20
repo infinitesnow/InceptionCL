@@ -4,7 +4,7 @@
 
 using namespace cl::sycl;
 
-Volume rand_input_generator(size_t width, size_t height, size_t depth){
+Volume rand_volume_generator(size_t width, size_t height, size_t depth){
   
   queue q;
 
@@ -31,7 +31,11 @@ Volume rand_input_generator(size_t width, size_t height, size_t depth){
   return v;
 };
 
-void print_volume(Volume &v,size_t width, size_t height,size_t depth){
+void print_volume(Volume &v){
+
+  size_t width = v.get_range().get(0);
+  size_t height = v.get_range().get(1);
+  size_t depth = v.get_range().get(2);
   
   auto V = v.get_access<access::mode::read>();
   
@@ -53,3 +57,18 @@ void print_volume(Volume &v,size_t width, size_t height,size_t depth){
   }
 };
 
+void initialize_volume(Volume &v, float val) {
+   size_t width = v.get_range().get(0);
+   size_t height = v.get_range().get(1);
+   size_t depth = v.get_range().get(2);
+
+   queue q;
+
+   q.submit( [&] (handler &cmdgroup) {
+     auto v_a = v.get_access<access::mode::write>(cmdgroup);
+     cmdgroup.parallel_for<class pad>( range<3>(width,height,depth),
+         	    [=] (id<3> index) {
+       	    v_a[index]=val;
+     });
+   });
+ };

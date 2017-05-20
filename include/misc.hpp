@@ -5,6 +5,7 @@
 
 typedef cl::sycl::buffer<float,3> Volume;
 
-Volume rand_input_generator(size_t width, size_t height, size_t depth);
-void print_volume(Volume &v,size_t width, size_t height,size_t depth);
+Volume rand_volume_generator(size_t width, size_t height, size_t depth);
+void print_volume(Volume &v);
+void initialize_volume(Volume &v, float val);
 #endif
