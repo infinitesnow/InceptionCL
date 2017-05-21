@@ -6,7 +6,9 @@
 class conv_functor{
   
   public:
-    conv_functor(Volume weights,size_t size) : weights{weights},size(size) {}
+    conv_functor(Volume weights) : weights{weights} {
+      size = weights.get_range().get(0);
+    }
     size_t size;
     Volume operator() (Volume);
   
@@ -36,17 +38,11 @@ class convolver {
       depth =  input_volume.get_range().get(2);
     }
 
-    Volume convolve(size_t size,short stride,short padding);
+    Volume convolve(std::vector<Volume> weights, size_t size,short stride,short padding);
+  
+  private:
     void pad(short padding);
 
-    template <size_t s>
-    inline Volume generate_stub_weights(size_t depth){
-      std::cout << "Generating stub weights" << std::endl;
-      //Volume w = rand_volume_generator(s,s,depth);
-      Volume w = cl::sycl::buffer<float,3>( cl::sycl::range<3>(s,s,depth));      
-      initialize_volume(w,1);
-      print_volume(w);
-    };
 };
 
 #endif

@@ -51,6 +51,7 @@ void print_volume(Volume &v){
   }
 
   for ( int i=0; i<depth; i++){
+    std::cout << "Layer " << i+1 << ":" << std::endl;
     std::cout << stringbuffer[i].str();
     for (int j=0; j<4*width; j++) std::cout << "*";
     std::cout << std::endl;
@@ -71,4 +72,13 @@ void initialize_volume(Volume &v, float val) {
        	    v_a[index]=val;
      });
    });
- };
+};
+
+Volume generate_stub_weights(size_t size,size_t depth, float val) {
+  std::cout << "Generating stub weights" << std::endl;
+  //Volume w = rand_volume_generator(size,size,depth);
+  Volume w = cl::sycl::buffer<float,3>( cl::sycl::range<3>(size,size,depth));      
+  initialize_volume(w,val);
+  print_volume(w);
+  return w;
+};
