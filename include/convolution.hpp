@@ -28,8 +28,6 @@ class convolver {
     size_t input_width;
     size_t input_height;
     size_t depth;
-    size_t padded_width;
-    size_t padded_height;
     Volume input_volume;
     Volume padded_volume;
     convolver(Volume &input_volume) : input_volume{input_volume} {
@@ -38,10 +36,13 @@ class convolver {
       depth =  input_volume.get_range().get(2);
     }
 
-    Volume convolve(std::vector<Volume> weights, size_t size,short stride,short padding);
+    Volume convolve(std::vector<Volume> weights, size_t size,short stride,short padding,int filter_number);
   
   private:
+    size_t padded_width;
+    size_t padded_height;
     void pad(short padding);
+    inline Volume convolve_filter(Volume &weights_volume,short size,short stride,short padding);
 
 };
 

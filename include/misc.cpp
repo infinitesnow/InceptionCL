@@ -53,7 +53,7 @@ void print_volume(Volume &v){
   for ( int i=0; i<depth; i++){
     std::cout << "Layer " << i+1 << ":" << std::endl;
     std::cout << stringbuffer[i].str();
-    for (int j=0; j<4*width; j++) std::cout << "*";
+    for (int j=0; j<4*width-1; j++) std::cout << "*";
     std::cout << std::endl;
   }
 };
@@ -65,11 +65,11 @@ void initialize_volume(Volume &v, float val) {
 
    queue q;
 
-   q.submit( [&] (handler &cmdgroup) {
+   q.submit( [&] (handler &cmdgroup) { 
      auto v_a = v.get_access<access::mode::write>(cmdgroup);
      cmdgroup.parallel_for<class pad>( range<3>(width,height,depth),
          	    [=] (id<3> index) {
-       	    v_a[index]=val;
+       	    v_a[index]=val*(rand()%10);
      });
    });
 };
