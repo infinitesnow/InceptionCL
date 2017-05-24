@@ -10,8 +10,6 @@ Volume rand_volume_generator(size_t width, size_t height, size_t depth){
 
   std::cout << "Generating random input volume" << std::endl;
 
-  clock_t start = clock();
-
   Volume v( range<3>(width,height,depth) );
 
   {
@@ -24,14 +22,12 @@ Volume rand_volume_generator(size_t width, size_t height, size_t depth){
     });
   }
 
-  clock_t end = clock();
-
-  std::cout << "Operation completed in " << end-start << " ticks." << std::endl;
-
   return v;
 };
 
 void print_volume(Volume &v){
+
+  const short item_length = 8;
 
   size_t width = v.get_range().get(0);
   size_t height = v.get_range().get(1);
@@ -39,22 +35,18 @@ void print_volume(Volume &v){
   
   auto V = v.get_access<access::mode::read>();
   
-  std::stringstream stringbuffer[depth];
   std::cout.setf(std::ios::fixed);
+  std::cout.precision(2);
 
   for(int z=0; z<depth; z++){
+    std::cout << "Layer " << z+1 << ":" << std::endl;
     for(int y=0; y<height; y++){
       for(int x=0; x<width; x++){
-	      stringbuffer[z] << std::setfill('0') << std::setw(8) << V[x][y][z] << " ";
+	      std::cout << std::setfill(' ') << std::setw(item_length) << V[x][y][z] << " ";
       }
-      stringbuffer[z] << std::endl;
+      std::cout << std::endl;
     }
-  }
-
-  for ( int i=0; i<depth; i++){
-    std::cout << "Layer " << i+1 << ":" << std::endl;
-    std::cout << stringbuffer[i].str();
-    for (int j=0; j<4*width-1; j++) std::cout << "*";
+    for (int j=0; j<(item_length+1)*width-1; j++) std::cout << "*";
     std::cout << std::endl;
   }
 };
@@ -91,8 +83,7 @@ void initialize_volume(Volume &v) {
    });
 };
 
-Volume generate_stub_weights(size_t size,size_t depth, float val) {
-  std::cout << "Generating stub weights" << std::endl;
+Volume generate_stub_weights(size_t size,size_t depth) {
   //Volume w = rand_volume_generator(size,size,depth);
   Volume w = cl::sycl::buffer<float,3>( cl::sycl::range<3>(size,size,depth));      
   initialize_volume(w);
