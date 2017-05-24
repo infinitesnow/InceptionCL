@@ -10,17 +10,18 @@ Volume convolver::operator() (Volume &input_volume) {
 
   pad(padding);
 
-  Volume output;
+  Volume output(range<3>(input_width,input_height,filter_number));
 
-  for (int f=0;f<filter_number;f++){
+  for (short f=0;f<filter_number;f++){
     
-    Volume weights_volume = weights[f];
+    Volume weights_volume = weights_vector[f];
     filter_functor filter_functor(weights_volume,stride);
-    output = filter_functor(padded_volume);
+    filter_functor(padded_volume,output,f);
 
-    std::cout << "Output filter " << f+1 << ":" << std::endl;
-    print_volume(output);
   };
+
+  std::cout << "Output volume:" << std::endl;
+  print_volume(output);
   
   return output;
 };
@@ -48,7 +49,7 @@ void convolver::pad(short padding){
   print_volume(padded_volume);
 };
 
-Volume filter_functor::operator() (Volume &input) {
+void filter_functor::operator() (Volume &input, Volume &output, short f) {
   size_t input_width = input.get_range().get(0);
   size_t input_height = input.get_range().get(1);
   size_t depth = input.get_range().get(2);
@@ -56,20 +57,19 @@ Volume filter_functor::operator() (Volume &input) {
   size_t output_width = input_width-size+1;
   size_t output_height = input_height-size+1;
 
-  Volume output = Volume(range<3>(output_width,output_height,1));
   Volume filter_output = Volume(range<3>(size,size,depth));
 
   queue q;
   
   q.submit( [&](handler &cmdgroup) {
     auto input_a = input.get_access<access::mode::read>(cmdgroup);
-    auto weights_a = weights.get_access<access::mode::read>(cmdgroup);
+    auto weights_a = weights_volume.get_access<access::mode::read>(cmdgroup);
     auto filter_output_a = filter_output.get_access<access::mode::write>(cmdgroup);
     auto output_a = output.get_access<access::mode::write>(cmdgroup);
     
     cmdgroup.parallel_for<class convolve>( range<3>(output_width,output_height,1), [=] (id<3> base_index) {
       	        id<3> input_index=base_index+id<3>(1,1,0);
-      	        id<3> output_index=base_index;
+      	        id<3> output_index=base_index+id<3>(0,0,f);
                 id<3> index = id<3>(0,0,0);
                 float result=0;
                 float current_product=0;
@@ -91,10 +91,7 @@ Volume filter_functor::operator() (Volume &input) {
            });
   });
   
-  std::cout << "Last kernel output:" << std::endl;
+  std::cout << "Last kernel output volume for filter " << f+1 << ":" << std::endl; 
   print_volume(filter_output);
 
-  return output;
-  
 };
-

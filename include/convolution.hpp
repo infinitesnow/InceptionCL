@@ -7,8 +7,8 @@ using namespace cl::sycl;
 
 class convolver {
   public:
-    convolver(std::vector<Volume> weights, short stride, short padding) : weights{weights}, stride{stride}, padding{padding} {
-      filter_number = weights.size();
+    convolver(std::vector<Volume> weights_vector, short stride, short padding) : weights_vector{weights_vector}, stride{stride}, padding{padding} {
+      filter_number = weights_vector.size();
     }
     int filter_number;
     short padding;
@@ -16,7 +16,7 @@ class convolver {
     size_t input_width;
     size_t input_height;
     size_t depth;
-    std::vector<Volume> weights;
+    std::vector<Volume> weights_vector;
     Volume input_volume;
 
     Volume operator() (Volume &input_volume);
@@ -33,18 +33,18 @@ class convolver {
 class filter_functor{
   
   public:
-    filter_functor(Volume weights, short stride) : weights{weights}, stride{stride} {
-      size = weights.get_range().get(0);
-      depth = weights.get_range().get(2);
+    filter_functor(Volume weights_volume, short stride) : weights_volume{weights_volume}, stride{stride} {
+      size = weights_volume.get_range().get(0);
+      depth = weights_volume.get_range().get(2);
     }
     size_t size;
     size_t depth;
     short stride;
 
-    Volume operator() (Volume &input);
+    void operator() (Volume &input, Volume &output, short iteration);
   
   private:
-    Volume weights;
+    Volume weights_volume;
 
 };
 
