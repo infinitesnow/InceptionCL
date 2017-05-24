@@ -10,13 +10,16 @@ Volume convolver::operator() (Volume &input_volume) {
 
   pad(padding);
 
+  queue q;
   Volume output(range<3>(input_width,input_height,filter_number));
 
   for (short f=0;f<filter_number;f++){
     
-    Volume weights_volume = weights_vector[f];
-    filter_functor filter_functor(weights_volume,stride);
-    filter_functor(padded_volume,output,f);
+    q.submit( [&](handler &filter_cmdgroup) {
+      Volume weights_volume = weights_vector[f];
+      filter_functor filter_functor(weights_volume,stride);
+      filter_functor(padded_volume,output,f);
+    });
 
   };
 
