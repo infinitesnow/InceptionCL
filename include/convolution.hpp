@@ -7,26 +7,39 @@ using namespace cl::sycl;
 
 class convolver {
   public:
-    convolver(std::vector<Volume> weights_vector, short stride, short padding) : weights_vector{weights_vector}, stride{stride}, padding{padding} {
+    // Constructor for convolution operations
+    convolver(std::vector<Volume> weights_vector, short stride) : weights_vector{weights_vector}, stride{stride} {
       filter_number = weights_vector.size();
+      // Filter size; must be the same for all filters
+      size = weights_vector[0].get_range().get(0);
+      // Compute padding
+      padding = floor(size/2);
     }
+    // Constructor for pooling operations
+    convolver(short size, short stride) : size{size}, stride{stride} {
+      padding = floor(size/2);
+    };
     int filter_number;
-    short padding;
+    short size;
     short stride;
+    short padding;
     size_t input_width;
     size_t input_height;
     size_t depth;
     std::vector<Volume> weights_vector;
     Volume input_volume;
 
-    Volume operator() (Volume &input_volume);
+    Volume convolve(Volume &input_volume);
+    Volume pool(Volume &input_volume);
+
+    Volume pad(Volume &input_volume, short padding);
 
   
   private:
     Volume padded_volume;
     size_t padded_width;
     size_t padded_height;
-    void pad(short padding);
+    void pad();
 
 };
 
@@ -46,12 +59,6 @@ class filter_functor{
   private:
     Volume weights_volume;
 
-};
-
-class maxpool_functor{
-  size_t size;
-  maxpool_functor(size_t size) : size{size} {}
-  Volume operator() (Volume);
 };
 
 #endif

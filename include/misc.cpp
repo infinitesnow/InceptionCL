@@ -83,10 +83,14 @@ void initialize_volume(Volume &v) {
    });
 };
 
-Volume generate_stub_weights(size_t size,size_t depth) {
-  //Volume w = rand_volume_generator(size,size,depth);
-  Volume w = cl::sycl::buffer<float,3>( cl::sycl::range<3>(size,size,depth));      
-  initialize_volume(w);
-  print_volume(w);
-  return w;
+std::vector<Volume> generate_stub_weights(size_t size,size_t depth,int filter_number) {
+  std::vector<Volume> weights_vector;
+  for (int i=0; i<filter_number; i++){
+    std::cout << "Generating stub weights for filter " << i+1 << std::endl;
+    Volume w( cl::sycl::range<3>(size,size,depth));      
+    initialize_volume(w);
+    print_volume(w);
+    weights_vector.push_back(w);
+  }
+  return weights_vector;
 };
