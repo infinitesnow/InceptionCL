@@ -3,12 +3,14 @@
 using namespace cl::sycl;
 
 Volume convolver::convolve(Volume &input_volume) {
-  std::cout << "Convolving (" << size << "x" << size  << ")..." << std::endl;
 
   this->input_volume = input_volume;
   input_width = input_volume.get_range().get(0);
   input_height = input_volume.get_range().get(1);
   depth = input_volume.get_range().get(2);
+
+  std::cout << "Convolving (" << size << "x" << size  << ") volume of size " 
+	  << volume_size(input_volume) << "..." << std::endl;
 
   pad();
 
@@ -25,7 +27,9 @@ Volume convolver::convolve(Volume &input_volume) {
 
   };
 
-  std::cout << "Convolution output (" << size << "x" << size  << ") volume:" << std::endl;
+  std::cout << "Convolution output (" << size << "x" << size  << ") volume size: " 
+	  << volume_size(output) << std::endl;
+  
   print_volume(output);
   
   return output;
@@ -51,10 +55,12 @@ void convolver::pad(){
     });
   });
 
-  print_volume(padded_volume);
+  std::cout << "Padded volume size: " << volume_size(padded_volume) << std::endl;
+  //print_volume(padded_volume);
 };
 
 void filter_functor::operator() (Volume &input, Volume &output, short f) {
+  BOOST_LOG_TRIVIAL(trace) << "Starting convolution for filter " << f;
   size_t input_width = input.get_range().get(0);
   size_t input_height = input.get_range().get(1);
   size_t depth = input.get_range().get(2);
@@ -75,21 +81,30 @@ void filter_functor::operator() (Volume &input, Volume &output, short f) {
     auto output_a = output.get_access<access::mode::write>(cmdgroup);
     
     cmdgroup.parallel_for<class convolve>( range<3>(output_width,output_height,1), [=] (id<3> base_index) {
-		// Input and output spaces have the same dimensions. We are iterating over this space, then we calculate
-		// the input index, which has an offset equal to the padding. Then, we iterate around the input index. 
+		/* 
+		Input and output spaces have the same dimensions. We are iterating over this space, 
+		then we calculate the input index, which has an offset equal to the padding. 
+		Then, we iterate around the input index.
+		*/
+                BOOST_LOG_TRIVIAL(trace) << "Base index " << base_index[0] << "," << base_index[1] << "," << base_index[2];
 		id<3> offset = id<3>(padding,padding,0);
       	        id<3> input_index=base_index+offset;
 		// We write on the ith level of the output volume
       	        id<3> output_index=base_index+id<3>(0,0,f);
                 id<3> index = id<3>(0,0,0);
                 float result=0;
+		float current_input_value=0;
+		float current_weight=0;
                 float current_product=0;
                 while ( index[2] < depth ){
                   while ( index[1] < size ){
                     while ( index[0] < size ){
-                      current_product = input_a[input_index+index-offset]*weights_a[index];
+		      current_input_value = input_a[input_index+index-offset];	
+		      current_weight = weights_a[index];
+                      current_product = current_input_value*current_weight;
 		      filter_output_a[index]=current_product;
                       result+=current_product;
+		      BOOST_LOG_TRIVIAL(trace) << current_input_value << "*" << current_weight << "=" << current_product; 
                       index[0]+=1;
                     };
                     index[0]=0;
@@ -98,12 +113,14 @@ void filter_functor::operator() (Volume &input, Volume &output, short f) {
                   index[1]=0;
                   index[2]+=1;
                 };
-    	    output_a[output_index]=result+bias;
+            result+=bias;
+    	    output_a[output_index]=result;
+	    BOOST_LOG_TRIVIAL(trace) << "Result: " << result;
            });
   });
   
-  std::cout << "Last kernel output volume for filter " << f+1 << ":" << std::endl; 
-  print_volume(filter_output);
+  //std::cout << "Last kernel output volume for filter " << f+1 << ":" << std::endl; 
+  //print_volume(filter_output);
 
 };
 
@@ -146,8 +163,7 @@ Volume convolver::pool(Volume &input_volume){
            });
   });
 
-  std::cout << "Pool output volume:" << std::endl;
-  print_volume(output);
+  std::cout << "Pooling output size: " << volume_size(output) << std::endl;
 
   return output;
   
