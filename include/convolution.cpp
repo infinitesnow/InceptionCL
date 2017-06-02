@@ -19,7 +19,7 @@ Volume convolver::convolve(Volume &input_volume) {
     
     q.submit( [&](handler &filter_cmdgroup) {
       Volume weights_volume = weights_vector[f];
-      filter_functor filter_functor(weights_volume,stride);
+      filter_functor filter_functor(weights_volume,stride,bias);
       filter_functor(padded_volume,output,f);
     });
 
@@ -51,7 +51,7 @@ void convolver::pad(){
     });
   });
 
-  //print_volume(padded_volume);
+  print_volume(padded_volume);
 };
 
 void filter_functor::operator() (Volume &input, Volume &output, short f) {
@@ -98,7 +98,7 @@ void filter_functor::operator() (Volume &input, Volume &output, short f) {
                   index[1]=0;
                   index[2]+=1;
                 };
-    	    output_a[output_index]=result;
+    	    output_a[output_index]=result+bias;
            });
   });
   
@@ -133,16 +133,16 @@ Volume convolver::pool(Volume &input_volume){
       	        id<3> input_index=base_index+offset;
       	        id<3> output_index=base_index;
                 id<3> index = id<3>(0,0,0);
-		std::vector<float> elements;
+		float max = -1;
                 while ( index[1] < size ){
                   while ( index[0] < size ){
-                    elements.push_back(input_a[input_index+index-offset]);
-		    index[0]+=1;
+                    max=std::max(input_a[input_index+index-offset],max);
+                    index[0]+=1;
                   };
                   index[0]=0;
                   index[1]+=1;
                 }; 
-    	    output_a[output_index]=*std::max_element(std::begin(elements), std::end(elements));
+    	    output_a[output_index]=max;
            });
   });
 
