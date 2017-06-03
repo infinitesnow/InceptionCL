@@ -1,10 +1,12 @@
 #include <convolution.hpp>
 
+#define DEBUG_LEVEL warning
+
 void init_boost()
 {
     logging::core::get()->set_filter
     (
-        logging::trivial::severity >= logging::trivial::trace
+        logging::trivial::severity >= logging::trivial::DEBUG_LEVEL
     );
 };
 

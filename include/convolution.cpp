@@ -32,7 +32,7 @@ Volume convolver::convolve(Volume &v) {
   BOOST_LOG_TRIVIAL(debug) << "Convolver: Convolution output (" << size << "x" << size  << ") volume size: " 
 	  << volume_size(output);
   
-  std::this_thread::sleep_for(std::chrono::seconds(1));
+  std::this_thread::sleep_for(std::chrono::seconds(2));
   
   return output;
 };
