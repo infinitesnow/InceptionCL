@@ -5,7 +5,7 @@ void init_boost()
 {
     logging::core::get()->set_filter
     (
-        logging::trivial::severity >= logging::trivial::debug
+        logging::trivial::severity >= logging::trivial::trace
     );
 };
 
@@ -71,8 +71,8 @@ int main(){
   vol4=c11_4.convolve(tmp);
 
   
-  //Volume output = concatenate_volumes(Weights{vol1,vol2,vol3,vol4});
-  //print_volume(output);
+  Volume output = concatenate_volumes(Weights{vol1,vol2,vol3,vol4});
+  print_volume(output);
   
   std::cout << "Finished." << std::endl;
   return 0;

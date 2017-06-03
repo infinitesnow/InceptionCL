@@ -42,27 +42,26 @@ void convolver::pad(){
   padded_width = input_width+2*padding;
   padded_height = input_height+2*padding;
 
-  BOOST_LOG_TRIVIAL(debug) << "Convolver: Padding volume...";
+  BOOST_LOG_TRIVIAL(debug) << "Convolver: Padding volume... " << volume_size(input_volume);
 
   padded_volume = Volume( range<3>(padded_width,padded_height,depth) );
-  BOOST_LOG_TRIVIAL(debug) << "Convolver: Initializing padding volume to 0";
+  BOOST_LOG_TRIVIAL(debug) << "Convolver: Initializing padding volume " << volume_size(padded_volume)<< " to 0";
   initialize_volume(padded_volume,0);
 
   queue q;
 
   q.submit( [&](handler &cmdgroup) {
-    BOOST_LOG_TRIVIAL(trace) << "Convolver: Submitting padding task to queue";
+    BOOST_LOG_TRIVIAL(trace) << "Convolver: Submitting padding task to queue (" << volume_size(padded_volume);
     auto input_a = input_volume.get_access<access::mode::read>(cmdgroup);
     auto padded_a = padded_volume.get_access<access::mode::write>(cmdgroup);
     cmdgroup.parallel_for<class refill>( range<3>(input_width,input_height,depth),
       	    [=] (id<3> index) {
             BOOST_LOG_TRIVIAL(trace) << "Convolver: reinserting element " << index_tostring(index)
-	    	<< "into padding volume";
+	    	<< " into padding volume " << volume_size(padded_volume);
       	    padded_a[index+id<3>(padding,padding,0)]=input_a[index];
     });
   });
 
-  BOOST_LOG_TRIVIAL(debug) << "Padded volume size: " << volume_size(padded_volume);
   //print_volume(padded_volume);
 };
 
