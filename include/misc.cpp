@@ -30,13 +30,13 @@ void print_volume(Volume &v){
   }
 };
 
-std::string volume_size(Volume& v){
+std::string volume_size(Volume const& v){
   std::stringstream out; 
   out << v.get_range().get(0) << "x" << v.get_range().get(1) << "x" << v.get_range().get(2);
   return out.str();
 };
 
-std::string index_tostring(cl::sycl::id<3> id){
+std::string index_tostring(cl::sycl::id<3> const id){
   std::stringstream out;
   out << "(" << id[0] << "," << id[1] << "," << id[2] <<")";
   return out.str();
@@ -58,9 +58,11 @@ inline void initialize_volume_inline(Volume &v, float val, bool random, bool int
      auto v_a = v.get_access<access::mode::write>(cmdgroup);
      cmdgroup.parallel_for<class pad>( range<3>(width,height,depth),
          	    [=] (id<3> index) {
+		auto tmp = !random ? float(val) : ( int_ ? int(rand()%randmax) : ((float(rand())/RAND_MAX)*randmax));
 		BOOST_LOG_TRIVIAL(trace) << "MISCINIT: Initializing " << index_tostring(index)
-			<< " element of volume of size " << volume_size(v);
-		v_a[index] = !random ? val : ( int_ ? rand()%randmax : (std::rand()/RAND_MAX)*randmax);
+			<< " element of volume of size " << volume_size(v)
+			<< " with " << tmp << " of type " << typeid(tmp).name();
+		v_a[index] = tmp;
      });
    });
 };

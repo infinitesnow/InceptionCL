@@ -5,7 +5,7 @@ void init_boost()
 {
     logging::core::get()->set_filter
     (
-        logging::trivial::severity >= logging::trivial::trace
+        logging::trivial::severity >= logging::trivial::debug
     );
 };
 
@@ -39,33 +39,39 @@ int main(){
    * Then, we apply the convolution/pool. 
   */
   Volume tmp;
-
+  
   Volume vol1;
-  convolver c11_1(generate_stub_weights(1,input_depth,5),stride,bias);
+  Weights weights_1 = generate_stub_weights(1,input_depth,5);
+  convolver c11_1(weights_1,stride,bias);
   vol1=c11_1.convolve(input_volume);
   print_volume(vol1);
 
-  //Volume vol2;
-  //convolver c11_2(generate_stub_weights(1,input_depth,5),stride,bias);
-  //tmp = c11_2.convolve(input_volume);
-  //print_volume(tmp);
-  //convolver c33_2(generate_stub_weights(3,5,3),stride,bias);
-  //vol2=c33_2.convolve(tmp);
+  Volume vol2;
+  Weights weights_2_11 = generate_stub_weights(1,input_depth,5);
+  convolver c11_2(weights_2_11,stride,bias);
+  tmp = c11_2.convolve(input_volume);
+  print_volume(tmp);
+  Weights weights_2_33 = generate_stub_weights(3,5,3);
+  convolver c33_2(weights_2_33,stride,bias);
+  vol2=c33_2.convolve(tmp);
   
-  //Volume vol3;
-  //convolver c11_3(generate_stub_weights(1,input_depth,2),stride,bias);
-  //tmp = c11_3.convolve(input_volume);
-  //convolver c55_3(generate_stub_weights(5,2,6),stride,bias);
-  //vol3=c55_3.convolve(tmp);
-  //
-  //Volume vol4;
-  //convolver p33_4(3,1);
-  //tmp = p33_4.pool(input_volume);
-  //convolver c11_4(generate_stub_weights(1,input_depth,5),stride,bias);
-  //vol4=c11_4.convolve(tmp);
+  Volume vol3;
+  Weights weights_3_11 = generate_stub_weights(1,input_depth,2);
+  convolver c11_3(weights_3_11,stride,bias);
+  tmp = c11_3.convolve(input_volume);
+  Weights weights_3_55 = generate_stub_weights(2,2,6);
+  convolver c55_3(weights_3_55,stride,bias);
+  vol3=c55_3.convolve(tmp);
+  
+  Volume vol4;
+  convolver p33_4(3,1);
+  tmp = p33_4.pool(input_volume);
+  Weights weights_4 = generate_stub_weights(1,input_depth,5);
+  convolver c11_4(weights_4,stride,bias);
+  vol4=c11_4.convolve(tmp);
 
-  //
-  //Volume output = concatenate_volumes(std::vector<Volume>{vol1,vol2,vol3,vol4});
+  
+  //Volume output = concatenate_volumes(Weights{vol1,vol2,vol3,vol4});
   //print_volume(output);
   
   std::cout << "Finished." << std::endl;

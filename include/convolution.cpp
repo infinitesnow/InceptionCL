@@ -19,12 +19,12 @@ Volume convolver::convolve(Volume &input_volume) {
 
   for (short f=0;f<filter_number;f++){
     
-    BOOST_LOG_TRIVIAL(trace) << "Convolver: Instantiating filter " << f;
+    BOOST_LOG_TRIVIAL(trace) << "Convolver: Instantiating filter " << f+1;
     Volume weights_volume = weights_vector[f];
     filter_functor filter_functor(weights_volume,stride,bias);
 
     q.submit( [&](handler &filter_cmdgroup) {
-      BOOST_LOG_TRIVIAL(debug) << "Convolver: Submitting filter " << f;
+      BOOST_LOG_TRIVIAL(debug) << "Convolver: Submitting filter " << f+1;
       filter_functor(padded_volume,output,f);
     });
 
@@ -45,15 +45,19 @@ void convolver::pad(){
   BOOST_LOG_TRIVIAL(debug) << "Convolver: Padding volume...";
 
   padded_volume = Volume( range<3>(padded_width,padded_height,depth) );
+  BOOST_LOG_TRIVIAL(debug) << "Convolver: Initializing padding volume to 0";
   initialize_volume(padded_volume,0);
 
   queue q;
 
   q.submit( [&](handler &cmdgroup) {
+    BOOST_LOG_TRIVIAL(trace) << "Convolver: Submitting padding task to queue";
     auto input_a = input_volume.get_access<access::mode::read>(cmdgroup);
     auto padded_a = padded_volume.get_access<access::mode::write>(cmdgroup);
     cmdgroup.parallel_for<class refill>( range<3>(input_width,input_height,depth),
       	    [=] (id<3> index) {
+            BOOST_LOG_TRIVIAL(trace) << "Convolver: reinserting element " << index_tostring(index)
+	    	<< "into padding volume";
       	    padded_a[index+id<3>(padding,padding,0)]=input_a[index];
     });
   });
@@ -63,7 +67,7 @@ void convolver::pad(){
 };
 
 void filter_functor::operator() (Volume &input, Volume &output, short f) {
-  BOOST_LOG_TRIVIAL(trace) << "Starting convolution for filter " << f << "("<<size<<"x"<<size<<"x"<<depth<<")";
+  BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 << "("<<size<<"x"<<size<<"x"<<depth<<"): starting convolution";
   size_t input_width = input.get_range().get(0);
   size_t input_height = input.get_range().get(1);
   size_t depth = input.get_range().get(2);
@@ -78,7 +82,7 @@ void filter_functor::operator() (Volume &input, Volume &output, short f) {
   queue q;
   
   q.submit( [&](handler &cmdgroup) {
-    BOOST_LOG_TRIVIAL(trace) << "Filter " << f << ": Submitting task to queue";
+    BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 << ": Submitting task to queue";
     auto input_a = input.get_access<access::mode::read>(cmdgroup);
     auto weights_a = weights_volume.get_access<access::mode::read>(cmdgroup);
     auto filter_output_a = filter_output.get_access<access::mode::write>(cmdgroup);
@@ -95,7 +99,7 @@ void filter_functor::operator() (Volume &input, Volume &output, short f) {
 		// We write on the ith level of the output volume
       	        id<3> output_index=base_index+id<3>(0,0,f);
                 id<3> index = id<3>(0,0,0);
-                BOOST_LOG_TRIVIAL(trace) << "Filter " << f << ": Parallel for with base index " << index_tostring(base_index) 
+                BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 << ": Parallel for with base index " << index_tostring(base_index) 
 		<< ", offset " << index_tostring(offset) 
 		<< ", output index " << index_tostring(output_index);
                 float result=0;
@@ -110,7 +114,7 @@ void filter_functor::operator() (Volume &input, Volume &output, short f) {
                       current_product = current_input_value*current_weight;
 		      filter_output_a[index]=current_product;
                       result+=current_product;
-		      BOOST_LOG_TRIVIAL(trace) << "Filter " << f 
+		      BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 
 			      << ": Iteration with index " << index_tostring(index)
 			      << ", calculating " << current_input_value << "*" << current_weight << "=" << current_product; 
                       index[0]+=1;
@@ -123,7 +127,7 @@ void filter_functor::operator() (Volume &input, Volume &output, short f) {
                 };
             result+=bias;
     	    output_a[output_index]=result;
-	    BOOST_LOG_TRIVIAL(trace) << "Filter " << f << ": Result ("<<index_tostring(output_index)<<"): " << result;
+	    BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 << ": Result ("<<index_tostring(output_index)<<"): " << result;
            });
   });
   
@@ -133,7 +137,7 @@ void filter_functor::operator() (Volume &input, Volume &output, short f) {
 };
 
 Volume convolver::pool(Volume &input_volume){
-  BOOST_LOG_TRIVIAL(info) << "Pooling...";
+  BOOST_LOG_TRIVIAL(info) << "POOL: Pooling...";
 
   this->input_volume = input_volume;
   input_width = input_volume.get_range().get(0);
@@ -149,6 +153,7 @@ Volume convolver::pool(Volume &input_volume){
   Volume output(range<3>(input_width,input_height,depth));
 
   q.submit( [&](handler &cmdgroup) {
+    BOOST_LOG_TRIVIAL(trace) << "POOL: submitting task to queue";
     auto input_a = padded_volume.get_access<access::mode::read>(cmdgroup);
     auto output_a = output.get_access<access::mode::write>(cmdgroup);
     
@@ -157,15 +162,18 @@ Volume convolver::pool(Volume &input_volume){
       	        id<3> input_index=base_index+offset;
       	        id<3> output_index=base_index;
                 id<3> index = id<3>(0,0,0);
+                BOOST_LOG_TRIVIAL(trace) << "POOL: Parallel for with base index " << index_tostring(base_index); 
 		float max = -1;
                 while ( index[1] < size ){
                   while ( index[0] < size ){
                     max=std::max(input_a[input_index+index-offset],max);
+		    BOOST_LOG_TRIVIAL(trace) << "POOL: max is now set to " << max; 
                     index[0]+=1;
                   };
                   index[0]=0;
                   index[1]+=1;
                 }; 
+	    BOOST_LOG_TRIVIAL(trace) << "POOL: max for this tile is " << max;
     	    output_a[output_index]=max;
            });
   });
