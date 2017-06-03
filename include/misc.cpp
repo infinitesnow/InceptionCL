@@ -4,7 +4,14 @@
 
 using namespace cl::sycl;
 
+void print_separator(rang::fg color, int length){
+  std::cout << color;
+  for (int j=0; j<length; j++)  std::cout << "═";
+  std::cout << rang::style::reset << std::endl;  
+}
+
 void print_volume(Volume &v){
+  using namespace std;
   BOOST_LOG_TRIVIAL(trace) << "MISCPRINT: Printing volume " << volume_size(v);
   const short item_length = 8;
 
@@ -12,31 +19,37 @@ void print_volume(Volume &v){
   size_t height = v.get_range().get(1);
   size_t depth = v.get_range().get(2);
   
+  BOOST_LOG_TRIVIAL(trace) << "MISCPRINT: Requesting access to buffer";
   auto V = v.get_access<access::mode::read>();
+  BOOST_LOG_TRIVIAL(trace) << "MISCPRINT: Access granted";
   
-  std::cout.setf(std::ios::fixed);
-  std::cout.precision(2);
+  cout.setf(ios::fixed);
+  cout.precision(2);
 
+  int separator_length = (item_length+1)*width+2;
+  print_separator(rang::fg::blue,separator_length);
+  print_separator(rang::fg::cyan,separator_length);
   for(int z=0; z<depth; z++){
-    std::cout << "Layer " << z+1 << ":" << std::endl;
     for(int y=0; y<height; y++){
+      cout << rang::fg::cyan << "║" << rang::style::reset;
       for(int x=0; x<width; x++){
-	      std::cout << std::setfill(' ') << std::setw(item_length) << V[x][y][z] << " ";
+	      cout << setfill(' ') << rang::fg::gray << setw(item_length) << V[x][y][z] << " ";
       }
-      std::cout << std::endl;
+      cout << rang::fg::cyan << "║" << rang::style::reset <<endl;
     }
-    for (int j=0; j<(item_length+1)*width-1; j++) std::cout << "*";
-    std::cout << std::endl;
+    print_separator(rang::fg::cyan,separator_length);
   }
+  print_separator(rang::fg::blue,separator_length);
+  cout << endl;
 };
 
-std::string volume_size(Volume& v){
+std::string volume_size(Volume const& v){
   std::stringstream out; 
   out << v.get_range().get(0) << "x" << v.get_range().get(1) << "x" << v.get_range().get(2);
   return out.str();
 };
 
-std::string index_tostring(cl::sycl::id<3> id){
+std::string index_tostring(cl::sycl::id<3> const id){
   std::stringstream out;
   out << "(" << id[0] << "," << id[1] << "," << id[2] <<")";
   return out.str();
@@ -58,9 +71,11 @@ inline void initialize_volume_inline(Volume &v, float val, bool random, bool int
      auto v_a = v.get_access<access::mode::write>(cmdgroup);
      cmdgroup.parallel_for<class pad>( range<3>(width,height,depth),
          	    [=] (id<3> index) {
+		float tmp = !random ? float(val) : ( int_ ? int(rand()%randmax) : ((float(rand())/RAND_MAX)*randmax));
 		BOOST_LOG_TRIVIAL(trace) << "MISCINIT: Initializing " << index_tostring(index)
-			<< " element of volume of size " << volume_size(v);
-		v_a[index] = !random ? val : ( int_ ? rand()%randmax : (std::rand()/RAND_MAX)*randmax);
+			<< " element of volume of size " << volume_size(v)
+			<< " with " << tmp;
+		v_a[index] = tmp;
      });
    });
 };
@@ -93,29 +108,53 @@ std::vector<Volume> generate_stub_weights(size_t size,size_t depth,int filter_nu
 };
 
 Volume concatenate_volumes(std::vector<Volume> input_volumes){
+  BOOST_LOG_TRIVIAL(info) << "CONCAT: Concatenating volumes...";
   int volumes_number=input_volumes.size();
+  BOOST_LOG_TRIVIAL(info) << "CONCAT: Concatenating " << volumes_number << " volumes";
+  
   size_t output_width=input_volumes[0].get_range().get(0);
   size_t output_height=input_volumes[0].get_range().get(1);
   std::vector<size_t> input_depths;
   for (int i=0; i<volumes_number; i++) {
+    BOOST_LOG_TRIVIAL(trace) << "CONCAT: Volume " << i+1 <<" is of size (" 
+	    << input_volumes[i].get_range().get(0) << ","
+	    << input_volumes[i].get_range().get(1) << ","
+	    << input_volumes[i].get_range().get(2) << ")";
     input_depths.push_back(input_volumes[i].get_range().get(2));
   }
   size_t output_depth=std::accumulate(input_depths.begin(),input_depths.end(),0);
+
+  BOOST_LOG_TRIVIAL(trace) << "CONCAT: Concatenation output is of size ("
+	  << output_width << ","
+	  << output_height << ","
+	  << output_depth <<")";
+
+  
   std::vector<size_t> offsets(volumes_number);
   for (int i=0; i<volumes_number; i++) {
-    std::partial_sum(&input_depths[0], &input_depths[i], &offsets[i]);
+    int offset=std::accumulate(input_depths.begin(), input_depths.begin()+i, 0);
+    BOOST_LOG_TRIVIAL(trace) << "CONCAT: Computed " << i+1 << "^ offset: " << offset;
+    offsets[i]=offset; 
   } 
+
 
   Volume concatenated_volume(range<3>(output_width,output_height,output_depth));	
   
   queue q;
   for (int i=0; i<volumes_number; i++) {
     q.submit( [&] (handler &concatenategroup) { 
+	BOOST_LOG_TRIVIAL(trace) << "CONCAT: submitting task " << i+1 << " to queue";
         auto output_a = concatenated_volume.get_access<access::mode::write>(concatenategroup);
         auto volumei_a = input_volumes[i].get_access<access::mode::read>(concatenategroup);
         concatenategroup.parallel_for<class pad>( range<3>(output_width,output_height,input_depths[i]),
 			[=] (id<3> index) {
 			id<3> output_index=index+id<3>(0,0,offsets[i]);
+			BOOST_LOG_TRIVIAL(trace) << "CONCAT: Writing element " << index_tostring(index) 
+				<< " of volume " << i+1
+				<< " (" 
+				<< volumei_a[index]
+				<< ") inside element " << index_tostring(output_index)
+			        << " of output volume.";	
 			output_a[output_index]=volumei_a[index];
       });
     });

@@ -1,13 +1,21 @@
-#include <CL/sycl.hpp>
 #include <convolution.hpp>
+
+#define DEBUG_LEVEL warning
 
 void init_boost()
 {
     logging::core::get()->set_filter
     (
-        logging::trivial::severity >= logging::trivial::trace
+        logging::trivial::severity >= logging::trivial::DEBUG_LEVEL
     );
 };
+
+inline void print_header(std::string s){
+  using namespace std;
+  print_separator(rang::fg::red,s.length()+2);
+  cout << rang::fg::red << "║" << s << "║" << rang::style::reset << endl; 
+  print_separator(rang::fg::red,s.length()+2);
+}
 
 int main(){
   // Let's initialize Boost logging system
@@ -27,10 +35,12 @@ int main(){
   const int num55reduce=24;
   const int num55=64;
   const int poolproj=64; 
+
   
   // Create a random input volume
-  Volume input_volume(range<3>(input_width,input_height,input_depth));
+  Volume input_volume(cl::sycl::range<3>(input_width,input_height,input_depth));
   initialize_volume(input_volume, true, 255);
+  print_header("Input volume");
   print_volume(input_volume);
   
   /* 
@@ -39,34 +49,69 @@ int main(){
    * Then, we apply the convolution/pool. 
   */
   Volume tmp;
-
+  
+  print_header("Branch 1");
   Volume vol1;
-  convolver c11_1(generate_stub_weights(1,input_depth,5),stride,bias);
+  print_header("CONV11");
+  Weights weights_1 = generate_stub_weights(1,input_depth,5);
+  print_header("Weights");
+  convolver c11_1(weights_1,stride,bias);
   vol1=c11_1.convolve(input_volume);
+  print_header("Output branch 1");
   print_volume(vol1);
 
-  //Volume vol2;
-  //convolver c11_2(generate_stub_weights(1,input_depth,5),stride,bias);
-  //tmp = c11_2.convolve(input_volume);
-  //print_volume(tmp);
-  //convolver c33_2(generate_stub_weights(3,5,3),stride,bias);
-  //vol2=c33_2.convolve(tmp);
+  print_header("Branch 2");
+  Volume vol2;
+  print_header("CONV11");
+  Weights weights_2_11 = generate_stub_weights(1,input_depth,5);
+  print_header("Weights");
+  convolver c11_2(weights_2_11,stride,bias);
+  tmp = c11_2.convolve(input_volume);
+  print_header("Output CONV11");
+  print_volume(tmp);
+  print_header("CONV33");
+  Weights weights_2_33 = generate_stub_weights(3,5,3);
+  print_header("Weights");
+  convolver c33_2(weights_2_33,stride,bias);
+  vol2=c33_2.convolve(tmp);
+  print_header("Output branch 2");
+  print_volume(vol2);
   
-  //Volume vol3;
-  //convolver c11_3(generate_stub_weights(1,input_depth,2),stride,bias);
-  //tmp = c11_3.convolve(input_volume);
-  //convolver c55_3(generate_stub_weights(5,2,6),stride,bias);
-  //vol3=c55_3.convolve(tmp);
-  //
-  //Volume vol4;
-  //convolver p33_4(3,1);
-  //tmp = p33_4.pool(input_volume);
-  //convolver c11_4(generate_stub_weights(1,input_depth,5),stride,bias);
-  //vol4=c11_4.convolve(tmp);
-
-  //
-  //Volume output = concatenate_volumes(std::vector<Volume>{vol1,vol2,vol3,vol4});
-  //print_volume(output);
+  print_header("Branch 3 (CONV11+CONV55)");
+  Volume vol3;
+  print_header("CONV11");
+  Weights weights_3_11 = generate_stub_weights(1,input_depth,2);
+  print_header("Weights");
+  convolver c11_3(weights_3_11,stride,bias);
+  tmp = c11_3.convolve(input_volume);
+  print_header("Output CONV11");
+  print_volume(tmp);
+  print_header("CONV55");
+  Weights weights_3_55 = generate_stub_weights(2,2,6);
+  print_header("Weights");
+  convolver c55_3(weights_3_55,stride,bias);
+  vol3=c55_3.convolve(tmp);
+  print_header("Output branch 3");
+  print_volume(vol3);
+  
+  print_header("Branch 4 (POOL33+CONV11)");
+  Volume vol4;
+  convolver p33_4(3,1);
+  tmp = p33_4.pool(input_volume);
+  print_header("Output POOL33");
+  print_volume(tmp);
+  print_header("CONV11");
+  Weights weights_4 = generate_stub_weights(1,input_depth,5);
+  print_header("Weights");
+  convolver c11_4(weights_4,stride,bias);
+  vol4=c11_4.convolve(tmp);
+  print_header("Output branch 4");
+  print_volume(vol4);
+  
+  print_header("Concatenating");
+  Volume output = concatenate_volumes(Weights{vol1,vol2,vol3,vol4});
+  print_header("Final output");
+  print_volume(output);
   
   std::cout << "Finished." << std::endl;
   return 0;
