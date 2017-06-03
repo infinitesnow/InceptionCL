@@ -23,13 +23,8 @@ Volume convolver::convolve(Volume &v) {
     Volume* weights_volume = &weights_vector[f];
     filter ft(*weights_volume,stride,bias);
 
-    q.submit( [&](handler &filter_cmdgroup) {
-      BOOST_LOG_TRIVIAL(debug) << "Convolver: Submitting filter " << f+1;
-      filter_cmdgroup.single_task( [=](){
-		      ft(padded_volume,output,f)
-		      });
-    });
-
+    BOOST_LOG_TRIVIAL(debug) << "Convolver: Launching filter " << f+1;
+    ft(padded_volume,output,f);
   };
 
   BOOST_LOG_TRIVIAL(debug) << "Convolver: Convolution output (" << size << "x" << size  << ") volume size: " 
