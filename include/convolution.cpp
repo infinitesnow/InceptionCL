@@ -9,8 +9,8 @@ Volume convolver::convolve(Volume &input_volume) {
   input_height = input_volume.get_range().get(1);
   depth = input_volume.get_range().get(2);
 
-  std::cout << "Convolving (" << size << "x" << size  << ") volume of size " 
-	  << volume_size(input_volume) << "..." << std::endl;
+  BOOST_LOG_TRIVIAL(info) << "Convolver: Convolving (" << size << "x" << size  << ") volume of size " 
+	  << volume_size(input_volume) << "...";
 
   pad();
 
@@ -19,16 +19,19 @@ Volume convolver::convolve(Volume &input_volume) {
 
   for (short f=0;f<filter_number;f++){
     
+    BOOST_LOG_TRIVIAL(trace) << "Convolver: Instantiating filter " << f;
+    Volume weights_volume = weights_vector[f];
+    filter_functor filter_functor(weights_volume,stride,bias);
+
     q.submit( [&](handler &filter_cmdgroup) {
-      Volume weights_volume = weights_vector[f];
-      filter_functor filter_functor(weights_volume,stride,bias);
+      BOOST_LOG_TRIVIAL(debug) << "Convolver: Submitting filter " << f;
       filter_functor(padded_volume,output,f);
     });
 
   };
 
-  std::cout << "Convolution output (" << size << "x" << size  << ") volume size: " 
-	  << volume_size(output) << std::endl;
+  BOOST_LOG_TRIVIAL(debug) << "Convolver: Convolution output (" << size << "x" << size  << ") volume size: " 
+	  << volume_size(output);
   
   print_volume(output);
   
@@ -39,7 +42,7 @@ void convolver::pad(){
   padded_width = input_width+2*padding;
   padded_height = input_height+2*padding;
 
-  std::cout << "Padding volume..." << std::endl;
+  BOOST_LOG_TRIVIAL(debug) << "Convolver: Padding volume...";
 
   padded_volume = Volume( range<3>(padded_width,padded_height,depth) );
   initialize_volume(padded_volume,0);
@@ -55,12 +58,12 @@ void convolver::pad(){
     });
   });
 
-  std::cout << "Padded volume size: " << volume_size(padded_volume) << std::endl;
+  BOOST_LOG_TRIVIAL(debug) << "Padded volume size: " << volume_size(padded_volume);
   //print_volume(padded_volume);
 };
 
 void filter_functor::operator() (Volume &input, Volume &output, short f) {
-  BOOST_LOG_TRIVIAL(trace) << "Starting convolution for filter " << f;
+  BOOST_LOG_TRIVIAL(trace) << "Starting convolution for filter " << f << "("<<size<<"x"<<size<<"x"<<depth<<")";
   size_t input_width = input.get_range().get(0);
   size_t input_height = input.get_range().get(1);
   size_t depth = input.get_range().get(2);
@@ -75,6 +78,7 @@ void filter_functor::operator() (Volume &input, Volume &output, short f) {
   queue q;
   
   q.submit( [&](handler &cmdgroup) {
+    BOOST_LOG_TRIVIAL(trace) << "Filter " << f << ": Submitting task to queue";
     auto input_a = input.get_access<access::mode::read>(cmdgroup);
     auto weights_a = weights_volume.get_access<access::mode::read>(cmdgroup);
     auto filter_output_a = filter_output.get_access<access::mode::write>(cmdgroup);
@@ -86,12 +90,14 @@ void filter_functor::operator() (Volume &input, Volume &output, short f) {
 		then we calculate the input index, which has an offset equal to the padding. 
 		Then, we iterate around the input index.
 		*/
-                BOOST_LOG_TRIVIAL(trace) << "Base index " << base_index[0] << "," << base_index[1] << "," << base_index[2];
 		id<3> offset = id<3>(padding,padding,0);
       	        id<3> input_index=base_index+offset;
 		// We write on the ith level of the output volume
       	        id<3> output_index=base_index+id<3>(0,0,f);
                 id<3> index = id<3>(0,0,0);
+                BOOST_LOG_TRIVIAL(trace) << "Filter " << f << ": Parallel for with base index " << index_tostring(base_index) 
+		<< ", offset " << index_tostring(offset) 
+		<< ", output index " << index_tostring(output_index);
                 float result=0;
 		float current_input_value=0;
 		float current_weight=0;
@@ -104,7 +110,9 @@ void filter_functor::operator() (Volume &input, Volume &output, short f) {
                       current_product = current_input_value*current_weight;
 		      filter_output_a[index]=current_product;
                       result+=current_product;
-		      BOOST_LOG_TRIVIAL(trace) << current_input_value << "*" << current_weight << "=" << current_product; 
+		      BOOST_LOG_TRIVIAL(trace) << "Filter " << f 
+			      << ": Iteration with index " << index_tostring(index)
+			      << ", calculating " << current_input_value << "*" << current_weight << "=" << current_product; 
                       index[0]+=1;
                     };
                     index[0]=0;
@@ -115,7 +123,7 @@ void filter_functor::operator() (Volume &input, Volume &output, short f) {
                 };
             result+=bias;
     	    output_a[output_index]=result;
-	    BOOST_LOG_TRIVIAL(trace) << "Result: " << result;
+	    BOOST_LOG_TRIVIAL(trace) << "Filter " << f << ": Result ("<<index_tostring(output_index)<<"): " << result;
            });
   });
   
@@ -125,7 +133,7 @@ void filter_functor::operator() (Volume &input, Volume &output, short f) {
 };
 
 Volume convolver::pool(Volume &input_volume){
-  std::cout << "Pooling..." << std::endl;
+  BOOST_LOG_TRIVIAL(info) << "Pooling...";
 
   this->input_volume = input_volume;
   input_width = input_volume.get_range().get(0);
@@ -145,7 +153,6 @@ Volume convolver::pool(Volume &input_volume){
     auto output_a = output.get_access<access::mode::write>(cmdgroup);
     
     cmdgroup.parallel_for<class pool>( range<3>(output_width,output_height,depth), [=] (id<3> base_index) {
-                //std::cout << "hi" << base_index[0]<<base_index[1] << base_index[2] << std::endl;
 		id<3> offset = id<3>(padding,padding,0);
       	        id<3> input_index=base_index+offset;
       	        id<3> output_index=base_index;
@@ -163,7 +170,7 @@ Volume convolver::pool(Volume &input_volume){
            });
   });
 
-  std::cout << "Pooling output size: " << volume_size(output) << std::endl;
+  BOOST_LOG_TRIVIAL(debug) << "Pooling output size: " << volume_size(output) << std::endl;
 
   return output;
   

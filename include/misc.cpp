@@ -4,29 +4,8 @@
 
 using namespace cl::sycl;
 
-Volume rand_volume_generator(size_t width, size_t height, size_t depth){
-  
-  queue q;
-
-  std::cout << "Generating random input volume..." << std::endl;
-
-  Volume v( range<3>(width,height,depth) );
-
-  {
-    q.submit( [&] (handler &cmdgroup) {
-      auto V = v.get_access<access::mode::write>(cmdgroup);
-      cmdgroup.parallel_for<class rand_init>( range<3>(width,height,depth),
-          	    [=] (id<3> index) {
-          	    V[index]=rand()%256;
-      });
-    });
-  }
-
-  return v;
-};
-
 void print_volume(Volume &v){
-
+  BOOST_LOG_TRIVIAL(trace) << "MISCPRINT: Printing volume " << volume_size(v);
   const short item_length = 8;
 
   size_t width = v.get_range().get(0);
@@ -57,7 +36,17 @@ std::string volume_size(Volume& v){
   return out.str();
 };
 
-void initialize_volume(Volume &v, float val) {
+std::string index_tostring(cl::sycl::id<3> id){
+  std::stringstream out;
+  out << "(" << id[0] << "," << id[1] << "," << id[2] <<")";
+  return out.str();
+}
+
+inline void initialize_volume_inline(Volume &v, float val, bool random, bool int_, int randmax) {
+   BOOST_LOG_TRIVIAL(trace) << "MISCINIT: Initializing volume " << volume_size(v) 
+	   << ", random: " << random
+	   << ", integer: " << int_ 
+	   << ", randmax: " << randmax;
    size_t width = v.get_range().get(0);
    size_t height = v.get_range().get(1);
    size_t depth = v.get_range().get(2);
@@ -65,36 +54,34 @@ void initialize_volume(Volume &v, float val) {
    queue q;
 
    q.submit( [&] (handler &cmdgroup) { 
+     BOOST_LOG_TRIVIAL(trace) << "MISCINIT: Submitting to queue for volume of size " << volume_size(v);
      auto v_a = v.get_access<access::mode::write>(cmdgroup);
      cmdgroup.parallel_for<class pad>( range<3>(width,height,depth),
          	    [=] (id<3> index) {
-       	    v_a[index]=val;
+		BOOST_LOG_TRIVIAL(trace) << "MISCINIT: Initializing " << index_tostring(index)
+			<< " element of volume of size " << volume_size(v);
+		v_a[index] = !random ? val : ( int_ ? rand()%randmax : (std::rand()/RAND_MAX)*randmax);
      });
    });
 };
 
-void initialize_volume(Volume& v) {
-   size_t width = v.get_range().get(0);
-   size_t height = v.get_range().get(1);
-   size_t depth = v.get_range().get(2);
-
-   queue q;
-
-   q.submit( [&] (handler &cmdgroup) { 
-     auto v_a = v.get_access<access::mode::write>(cmdgroup);
-     cmdgroup.parallel_for<class pad>( range<3>(width,height,depth),
-         	    [=] (id<3> index) {
-       	    v_a[index]=( (float) rand()/RAND_MAX);
-     });
-   });
-};
+void initialize_volume(Volume& v){
+	initialize_volume_inline(v, 0, true, false, 1);
+}
+void initialize_volume(Volume& v, float val){
+	initialize_volume_inline(v, 0, false, false, 1);
+}
+void initialize_volume(Volume& v, bool int_, int randmax){
+	initialize_volume_inline(v, 0, true, int_, randmax);
+}	
 
 std::vector<Volume> generate_stub_weights(size_t size,size_t depth,int filter_number) {
-  std::cout << "Generating stub weights for " << filter_number << 
-	  " filters (" << size << "x" << size << "x" << depth << ")..." << std::endl;
+  BOOST_LOG_TRIVIAL(debug) << "MISC: Generating stub weights for " << filter_number << 
+	  " filters (" << size << "x" << size << "x" << depth << ")...";
 
   std::vector<Volume> weights_vector;
   for (int i=0; i<filter_number; i++){
+    BOOST_LOG_TRIVIAL(debug) << "MISC: Generating weights for filter " << i;
     Volume w( cl::sycl::range<3>(size,size,depth));      
     initialize_volume(w);
     //std::cout << "Stub weights for filter " << i+1 << ":" <<std::endl;

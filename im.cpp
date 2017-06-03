@@ -29,7 +29,8 @@ int main(){
   const int poolproj=64; 
   
   // Create a random input volume
-  Volume input_volume = rand_volume_generator(input_width,input_height,input_depth);
+  Volume input_volume(range<3>(input_width,input_height,input_depth));
+  initialize_volume(input_volume, true, 255);
   print_volume(input_volume);
   
   /* 
