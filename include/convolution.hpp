@@ -3,8 +3,6 @@
 
 #include <misc.hpp>
 
-using namespace cl::sycl;
-
 class convolver {
   public:
     // Constructor for convolution operations
@@ -45,20 +43,21 @@ class convolver {
 
 };
 
-class filter_functor{
+class filter{
   
   public:
-    filter_functor(Volume weights_volume, short stride, float bias) : 
+    filter(Volume weights_volume, short stride, float bias) : 
 	    weights_volume{weights_volume}, stride{stride}, bias{bias} {
       size = weights_volume.get_range().get(0);
       depth = weights_volume.get_range().get(2);
+      BOOST_LOG_TRIVIAL(trace) << "Building a filter of size " << size << ", depth " << depth;
     }
     size_t size;
     size_t depth;
     short stride;
     float bias;
 
-    void operator() (Volume &input, Volume &output, short iteration);
+    void operator() (Volume& input, Volume& output, short f);
   
   private:
     Volume weights_volume;

@@ -4,7 +4,14 @@
 
 using namespace cl::sycl;
 
+void print_separator(rang::fg color, int length){
+  std::cout << color;
+  for (int j=0; j<length; j++)  std::cout << "═";
+  std::cout << rang::style::reset << std::endl;  
+}
+
 void print_volume(Volume &v){
+  using namespace std;
   BOOST_LOG_TRIVIAL(trace) << "MISCPRINT: Printing volume " << volume_size(v);
   const short item_length = 8;
 
@@ -12,22 +19,28 @@ void print_volume(Volume &v){
   size_t height = v.get_range().get(1);
   size_t depth = v.get_range().get(2);
   
+  BOOST_LOG_TRIVIAL(trace) << "MISCPRINT: Requesting access to buffer";
   auto V = v.get_access<access::mode::read>();
+  BOOST_LOG_TRIVIAL(trace) << "MISCPRINT: Access granted";
   
-  std::cout.setf(std::ios::fixed);
-  std::cout.precision(2);
+  cout.setf(ios::fixed);
+  cout.precision(2);
 
+  int separator_length = (item_length+1)*width+2;
+  print_separator(rang::fg::blue,separator_length);
+  print_separator(rang::fg::cyan,separator_length);
   for(int z=0; z<depth; z++){
-    std::cout << "Layer " << z+1 << ":" << std::endl;
     for(int y=0; y<height; y++){
+      cout << rang::fg::cyan << "║" << rang::style::reset;
       for(int x=0; x<width; x++){
-	      std::cout << std::setfill(' ') << std::setw(item_length) << V[x][y][z] << " ";
+	      cout << setfill(' ') << rang::fg::gray << setw(item_length) << V[x][y][z] << " ";
       }
-      std::cout << std::endl;
+      cout << rang::fg::cyan << "║" << rang::style::reset <<endl;
     }
-    for (int j=0; j<(item_length+1)*width-1; j++) std::cout << "*";
-    std::cout << std::endl;
+    print_separator(rang::fg::cyan,separator_length);
   }
+  print_separator(rang::fg::blue,separator_length);
+  cout << endl;
 };
 
 std::string volume_size(Volume const& v){
@@ -58,10 +71,10 @@ inline void initialize_volume_inline(Volume &v, float val, bool random, bool int
      auto v_a = v.get_access<access::mode::write>(cmdgroup);
      cmdgroup.parallel_for<class pad>( range<3>(width,height,depth),
          	    [=] (id<3> index) {
-		auto tmp = !random ? float(val) : ( int_ ? int(rand()%randmax) : ((float(rand())/RAND_MAX)*randmax));
+		float tmp = !random ? float(val) : ( int_ ? int(rand()%randmax) : ((float(rand())/RAND_MAX)*randmax));
 		BOOST_LOG_TRIVIAL(trace) << "MISCINIT: Initializing " << index_tostring(index)
 			<< " element of volume of size " << volume_size(v)
-			<< " with " << tmp << " of type " << typeid(tmp).name();
+			<< " with " << tmp;
 		v_a[index] = tmp;
      });
    });
