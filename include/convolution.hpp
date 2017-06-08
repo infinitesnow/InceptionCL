@@ -18,7 +18,7 @@ class filter{
     short stride;
     float bias;
 
-    void operator() (Volume& input, Volume& output, short f);
+    void operator() (Volume& input, Volume& output, short f, cl::sycl::queue& q);
   
   private:
     Volume weights_volume;
@@ -31,9 +31,6 @@ class convolver {
     // Constructor for convolution operations
     convolver(std::vector<Volume> weights_vector, short stride, float bias) : 
 	   stride{stride}, bias{bias} {
-      // Compute padding
-      this->padding = floor(size/2);
-
       // Get number of filters
       this->filter_number = weights_vector.size();
       // Filter size; must be the same for all filters
@@ -45,6 +42,8 @@ class convolver {
         this->filters_vector.push_back(ft);
       };
 
+      // Compute padding
+      this->padding = floor(size/2);
     };
 
     // Constructor for pooling operations
@@ -57,13 +56,13 @@ class convolver {
     short padding;
     float bias;
 
-    void initialize(Volume &v, cl::sycl::queue q){
+    void initialize(Volume &v, cl::sycl::queue& q){
       this->input_volume = v;
       this->q= q;
       this->input_width = input_volume.get_range().get(0);
       this->input_height = input_volume.get_range().get(1);
       this->input_depth = input_volume.get_range().get(2);
-      output_volume = Volume(cl::sycl::range<3>(input_width,input_height,input_depth));
+      this->output_volume = Volume(cl::sycl::range<3>(input_width,input_height,filter_number));
       pad();
     };
     Volume input_volume;

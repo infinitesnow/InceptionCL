@@ -2,7 +2,8 @@
 
 using namespace cl::sycl;
 
-void filter::operator() (Volume& input, Volume& output, short f) {
+void filter::operator() (Volume& input, Volume& output, short f, cl::sycl::queue& q) {
+
   BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 << " ("<<size<<"x"<<size<<"x"<<depth<<"): starting convolution";
   size_t input_width = input.get_range().get(0);
   size_t input_height = input.get_range().get(1);
@@ -15,8 +16,6 @@ void filter::operator() (Volume& input, Volume& output, short f) {
 
   Volume filter_output = Volume(range<3>(size,size,depth));
 
-  queue q;
-  
   q.submit( [&](handler &cmdgroup) {
     BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 
     	<< " ("<<size<<"x"<<size<<"x"<<depth<<")" 
@@ -58,6 +57,7 @@ void filter::operator() (Volume& input, Volume& output, short f) {
 	          filter_output_a[index]=current_product;
                   result+=current_product;
 	          BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 
+			  << ", on base index " << index_tostring(input_index)
 	                  << ": Iteration with index " << index_tostring(index)
 	                  << ", calculating " 
 	                  << current_input_value << "*" << current_weight << "=" << current_product; 
@@ -82,17 +82,15 @@ void filter::operator() (Volume& input, Volume& output, short f) {
 };
 
 void convolver::pad(){
-  padded_width = input_width+2*padding;
-  padded_height = input_height+2*padding;
-  padded_depth = input_depth;
+  this->padded_width = input_width+2*padding;
+  this->padded_height = input_height+2*padding;
+  this->padded_depth = input_depth;
 
   BOOST_LOG_TRIVIAL(debug) << "Convolver: Padding volume... " << volume_size(input_volume);
 
-  padded_volume = Volume( range<3>(padded_width,padded_height,padded_depth) );
+  this->padded_volume = Volume( range<3>(padded_width,padded_height,padded_depth) );
   BOOST_LOG_TRIVIAL(debug) << "Convolver: Initializing padding volume " << volume_size(padded_volume)<< " to 0";
-  initialize_volume(padded_volume,0);
-
-  queue q;
+  initialize_volume(padded_volume,0,q);
 
   q.submit( [&](handler &cmdgroup) {
     BOOST_LOG_TRIVIAL(trace) << "Convolver: Submitting padding task to queue ("
@@ -101,12 +99,12 @@ void convolver::pad(){
     auto padded_a = padded_volume.get_access<access::mode::write>(cmdgroup);
     cmdgroup.parallel_for<class refill>( range<3>(input_width,input_height,input_depth),
       	    [=] (id<3> index) {
-            BOOST_LOG_TRIVIAL(trace) << "Convolver: reinserting element " << index_tostring(index)
+            BOOST_LOG_TRIVIAL(trace) << "Convolver: reinserting element " << input_a[index] << " " 
+	    	<< index_tostring(index)
 	    	<< " into padding volume " << volume_size(padded_volume);
       	    padded_a[index+id<3>(padding,padding,0)]=input_a[index];
     });
   });
-
 };
 
 Volume* convolver::convolve() {
@@ -114,10 +112,10 @@ Volume* convolver::convolve() {
   BOOST_LOG_TRIVIAL(info) << "Convolver: Convolving (" << size << "x" << size  << ") volume of size " 
 	  << volume_size(input_volume) << "...";
 
-  for (short f=0;f<filter_number;f++){
+  for (short f=0;f<filter_number-1;f++){
     q.submit( [&](handler &filter_cmdgroup) {
       BOOST_LOG_TRIVIAL(debug) << "Convolver: Submitting filter " << f+1;
-      filters_vector[f](padded_volume,output_volume,f);
+      filters_vector[f](padded_volume,output_volume,f,q);
     });
   };
 

@@ -1,5 +1,6 @@
 #include <convolution.hpp>
 
+//#define DEBUG_LEVEL warning 
 #define DEBUG_LEVEL trace 
 
 void init_boost()
@@ -12,9 +13,9 @@ void init_boost()
 
 inline void print_header(std::string s){
   using namespace std;
-  print_separator(rang::fg::red,s.length()+2);
-  cout << rang::fg::red << "║" << s << "║" << rang::style::reset << endl; 
-  print_separator(rang::fg::red,s.length()+2);
+  print_separator(rang::fg::red,s.length()+4);
+  cout << rang::fg::red << "║ " << s << " ║" << rang::style::reset << endl; 
+  print_separator(rang::fg::red,s.length()+4);
 }
 
 int main(){
@@ -51,49 +52,52 @@ int main(){
   Volume vol3_t = Volume(cl::sycl::range<3>(input_width,input_height,input_depth));
   Volume vol4_t = Volume(cl::sycl::range<3>(input_width,input_height,input_depth));
 
-	    
-  initialize_volume(input_volume, true, 255);
-  initialize_volume(vol2_t,0);
-  initialize_volume(vol3_t,0);
-  initialize_volume(vol4_t,0);
-
   cl::sycl::queue q;
+	    
+  initialize_volume(input_volume, true, 255, q);
+  initialize_volume(vol2_t,0,q);
+  initialize_volume(vol3_t,0,q);
+  initialize_volume(vol4_t,0,q);
 
   print_header("Initializing convolvers");
-  Weights weights_1 = generate_stub_weights(1,input_depth,5);
-  convolver c11_1(weights_1,stride,bias);
-  c11_1.initialize(input_volume,q);
+  Weights weights_1_11 = generate_stub_weights(1,input_depth,5,q);
+  convolver c1_11(weights_1_11,stride,bias);
+  c1_11.initialize(input_volume,q);
 
-  Weights weights_2_11 = generate_stub_weights(1,input_depth,5);
-  convolver c11_2(weights_2_11,stride,bias);
-  c11_2.initialize(input_volume,q);
-  Weights weights_2_33 = generate_stub_weights(3,5,3);
-  convolver c33_2(weights_2_33,stride,bias);
-  c11_1.initialize(vol2_t,q);
+  Weights weights_2_11 = generate_stub_weights(1,input_depth,5,q);
+  convolver c2_11(weights_2_11,stride,bias);
+  c2_11.initialize(input_volume,q);
+  Weights weights_2_33 = generate_stub_weights(3,5,3,q);
+  convolver c2_33(weights_2_33,stride,bias);
+  c2_33.initialize(vol2_t,q);
   
-  Weights weights_3_11 = generate_stub_weights(1,input_depth,2);
-  convolver c11_3(weights_3_11,stride,bias);
-  c11_3.initialize(input_volume,q);
-  Weights weights_3_55 = generate_stub_weights(2,2,6);
-  convolver c55_3(weights_3_55,stride,bias);
-  c11_3.initialize(vol3_t,q);
+  Weights weights_3_11 = generate_stub_weights(1,input_depth,2,q);
+  convolver c3_11(weights_3_11,stride,bias);
+  c3_11.initialize(input_volume,q);
+  Weights weights_3_55 = generate_stub_weights(2,2,6,q);
+  convolver c3_55(weights_3_55,stride,bias);
+  c3_55.initialize(vol3_t,q);
 
-  convolver p33_4(3,1);
-  p33_4.initialize(input_volume,q);
-  Weights weights_4 = generate_stub_weights(1,input_depth,5);
-  convolver c11_4(weights_4,stride,bias);
-  c11_3.initialize(vol4_t,q);
+  convolver p4_33(3,1);
+  p4_33.initialize(input_volume,q);
+  Weights weights_4_11 = generate_stub_weights(1,input_depth,5,q);
+  convolver c4_11(weights_4_11,stride,bias);
+  c4_11.initialize(vol4_t,q);
+
+  std::this_thread::sleep_for(std::chrono::seconds(3));
 
   print_header("Launching convolutions");
-  c11_1.convolve();
-  c33_2.convolve();
-  c55_3.convolve();
-  c11_4.convolve();
+  c1_11.convolve();
+  //c2_33.convolve();
+  //c3_55.convolve();
+  //c4_11.convolve();
   
   print_header("Concatenating");
-  Volume output = concatenate_volumes(Weights{vol1,vol2,vol3,vol4});
+  //Volume output = concatenate_volumes(Weights{vol1,vol2,vol3,vol4});
   print_header("Final output");
-  print_volume(output);
+  //print_volume(output);
+ 
+  std::this_thread::sleep_for(std::chrono::seconds(3));
   
   std::cout << "Finished." << std::endl;
   return 0;
