@@ -1,7 +1,7 @@
 #include <convolution.hpp>
 
-//#define DEBUG_LEVEL warning 
-#define DEBUG_LEVEL trace 
+#define DEBUG_LEVEL warning 
+//#define DEBUG_LEVEL trace 
 
 void init_boost()
 {
@@ -19,6 +19,7 @@ inline void print_header(std::string s){
 }
 
 int main(){
+  std::srand(118);
   // Let's initialize Boost logging system
   init_boost();
 

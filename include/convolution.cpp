@@ -26,10 +26,6 @@ void filter::operator() (Volume& input, Volume& output, short f, cl::sycl::queue
     auto output_a = output.get_access<access::mode::write>(cmdgroup);
     
     cmdgroup.parallel_for<class convolve>( range<3>(output_width,output_height,1), [=] (id<3> base_index) {
-            BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 
-	    	<< " ("<<size<<"x"<<size<<"x"<<depth<<")" 
-		<< ", operating on volume " << volume_size(input)
-	    	<< ": entering parallel for"; 
 	    /* 
 	    Input and output spaces have the same dimensions. We are iterating over this space, 
 	    then we calculate the input index, which has an offset equal to the padding. 
@@ -40,12 +36,6 @@ void filter::operator() (Volume& input, Volume& output, short f, cl::sycl::queue
 	    // We write on the ith level of the output volume
       	    id<3> output_index=base_index+id<3>(0,0,f);
             id<3> index = id<3>(0,0,0);
-            BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 
-	    	<< " ("<<size<<"x"<<size<<"x"<<depth<<")" 
-		<< ", operating on volume " << volume_size(input)
-	    	<< ": Parallel for with base index " << index_tostring(base_index) 
-	    	<< ", offset " << index_tostring(offset) 
-	    	<< ", output index " << index_tostring(output_index); 
             float result=0;
 	    float current_input_value=0;
 	    float current_weight=0;
@@ -62,6 +52,7 @@ void filter::operator() (Volume& input, Volume& output, short f, cl::sycl::queue
     	                  << " ("<<size<<"x"<<size<<"x"<<depth<<")" 
 		          << ", operating on volume " << volume_size(input)
 			  << ", on base index " << index_tostring(input_index)
+			  << ", offset" << index_tostring(offset)
 	                  << ": Iteration with index " << index_tostring(index)
 	                  << ", calculating " 
 	                  << current_input_value << "*" << current_weight << "=" << current_product; 
@@ -73,10 +64,18 @@ void filter::operator() (Volume& input, Volume& output, short f, cl::sycl::queue
               index[1]=0;
               index[2]+=1;
             };
-            result+=bias;
-    	    output_a[output_index]=std::max(result,(float)0.0);
+	    BOOST_LOG_TRIVIAL(trace) << "Filter "<< f+1
+    	            << " ("<<size<<"x"<<size<<"x"<<depth<<")" 
+		    << ", operating on volume " << volume_size(input)
+		    << ", on base index " << index_tostring(input_index)
+		    << ": applying ReLU to "<< result+bias<<","<<0;
+            result=std::max(result+bias,(float)0.0);
+    	    output_a[output_index]=result;
 	    BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 
-		    << ": Result ("<<index_tostring(output_index)<<"): " << result;
+    	            << " ("<<size<<"x"<<size<<"x"<<depth<<")" 
+		    << ", operating on volume " << volume_size(input)
+		    << ", on base index " << index_tostring(input_index)
+		    << ": Result (to "<<index_tostring(output_index)<<"): " << result;
            });
   });
   

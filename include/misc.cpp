@@ -72,8 +72,8 @@ inline void initialize_volume_inline(Volume &v, float val, bool random, bool int
 		float tmp = 
 			!random ? float(val) 
 			: ( int_ ? int(rand()%randmax) 
-				: ((float(rand())/RAND_MAX)*randmax-randmax/2)
-				);
+				: (float) (((double)rand()/RAND_MAX)*randmax-double(randmax)/2)
+			  );
 		BOOST_LOG_TRIVIAL(trace) << "MISCINIT: Initializing " << index_tostring(index)
 			<< " element of volume of size " << volume_size(v)
 			<< " with " << tmp;
