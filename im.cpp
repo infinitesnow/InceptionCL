@@ -1,7 +1,7 @@
 #include <convolution.hpp>
 
-//#define DEBUG_LEVEL warning 
-#define DEBUG_LEVEL trace 
+#define DEBUG_LEVEL warning 
+//#define DEBUG_LEVEL trace 
 
 void boost_init()
 {
@@ -44,7 +44,7 @@ int main(){
 
   const int num1_11=5;
   const int num2_11=5;
-  const int num2_33=10;
+  const int num2_33=7;
   const int num3_11=6;
   const int num3_55=3;
   const int num4_11=2; 

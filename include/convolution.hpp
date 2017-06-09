@@ -90,8 +90,8 @@ class convolver {
 
     cl::sycl::queue q;
 
-    Volume* convolve();
-    Volume* pool();
+    void convolve();
+    void pool();
 
   private:
     Volume padded_volume;

@@ -14,7 +14,7 @@ void filter::operator() (Volume& input, Volume& output, short f, cl::sycl::queue
 
   short padding = floor(size/2);
 
-  Volume filter_output = Volume(range<3>(size,size,depth));
+  //Volume filter_output = Volume(range<3>(size,size,depth));
 
   q.submit( [&](handler &cmdgroup) {
     BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 
@@ -22,7 +22,7 @@ void filter::operator() (Volume& input, Volume& output, short f, cl::sycl::queue
     	<< ": Submitting task to queue";
     auto input_a = input.get_access<access::mode::read>(cmdgroup);
     auto weights_a = weights_volume.get_access<access::mode::read>(cmdgroup);
-    auto filter_output_a = filter_output.get_access<access::mode::write>(cmdgroup);
+    //auto filter_output_a = filter_output.get_access<access::mode::write>(cmdgroup);
     auto output_a = output.get_access<access::mode::write>(cmdgroup);
     
     cmdgroup.parallel_for<class convolve>( range<3>(output_width,output_height,1), [=] (id<3> base_index) {
@@ -46,7 +46,7 @@ void filter::operator() (Volume& input, Volume& output, short f, cl::sycl::queue
 	          current_input_value = input_a[input_index+index-offset];	
 	          current_weight = weights_a[index];
                   current_product = current_input_value*current_weight;
-	          filter_output_a[index]=current_product;
+	          //filter_output_a[index]=current_product;
                   result+=current_product;
 	          BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 
     	                  << " ("<<size<<"x"<<size<<"x"<<depth<<")" 
@@ -116,7 +116,7 @@ void convolver::pad_fill(){
   });
 }
 
-Volume* convolver::convolve() {
+void convolver::convolve() {
 
   BOOST_LOG_TRIVIAL(info) << "Convolver: Convolving ("<<size<<"x"<<size<<") volume of size " 
 	  << input_width<<"x"<<input_height<<"x"<<input_depth << "...";
@@ -131,35 +131,45 @@ Volume* convolver::convolve() {
       filters_vector[f](padded_volume,output_volume,f,q);
     });
   };
-
-  return &output_volume;
 };
 
 
-Volume* convolver::pool(){
+void convolver::pool(){
   BOOST_LOG_TRIVIAL(info) << "POOL: Pooling...";
 
   if (this->is_soft) input_volume = *input;
   
   pad_fill();
-
-  this->padded_volume = Volume( range<3>(padded_width,padded_height,padded_depth) );
-  BOOST_LOG_TRIVIAL(debug) << "Convolver: Initializing padding volume " << volume_size(padded_volume)<< " to 0";
-  initialize_volume(padded_volume,0,q);
+  size_t output_width = input_width;
+  size_t output_height = input_height;
 
   q.submit( [&](handler &cmdgroup) {
-    BOOST_LOG_TRIVIAL(trace) << "Convolver: Submitting padding task to queue ("
-   	 << volume_size(padded_volume) << ")";
-    auto input_a = input_volume.get_access<access::mode::read>(cmdgroup);
-    auto padded_a = padded_volume.get_access<access::mode::write>(cmdgroup);
-    cmdgroup.parallel_for<class refill>( range<3>(input_width,input_height,input_depth),
-      	    [=] (id<3> index) {
-            BOOST_LOG_TRIVIAL(trace) << "Convolver: reinserting element " << input_a[index] << " " 
-	    	<< index_tostring(index)
-	    	<< " into padding volume " << volume_size(padded_volume);
-      	    padded_a[index+id<3>(padding,padding,0)]=input_a[index];
-    });
+    BOOST_LOG_TRIVIAL(trace) << "POOL: submitting task to queue";
+    auto input_a = padded_volume.get_access<access::mode::read>(cmdgroup);
+    auto output_a = output_volume.get_access<access::mode::write>(cmdgroup);
+
+    cmdgroup.parallel_for<class pool>( range<3>(output_width,output_height,input_depth), [=] (id<3> base_index) {
+                id<3> offset = id<3>(padding,padding,0);
+                id<3> input_index=base_index+offset;
+                id<3> output_index=base_index;
+                id<3> index = id<3>(0,0,0);
+                BOOST_LOG_TRIVIAL(trace) << "POOL: Parallel for with base index " << index_tostring(base_index);
+                float max = -1;
+                while ( index[1] < size ){
+                  while ( index[0] < size ){
+                    max=std::max(input_a[input_index+index-offset],max);
+                    BOOST_LOG_TRIVIAL(trace) << "POOL: max is now set to " << max;
+                    index[0]+=1;
+                  };
+                  index[0]=0;
+                  index[1]+=1;
+                };
+            BOOST_LOG_TRIVIAL(trace) << "POOL: max for this tile is " << max;
+            output_a[output_index]=max;
+           });
   });
+
+
 };
 
 void concatenator::concatenate(cl::sycl::queue q){
