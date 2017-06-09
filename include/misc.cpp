@@ -69,7 +69,11 @@ inline void initialize_volume_inline(Volume &v, float val, bool random, bool int
      auto v_a = v.get_access<access::mode::write>(cmdgroup);
      cmdgroup.parallel_for<class pad>( range<3>(width,height,depth),
          	    [=] (id<3> index) {
-		float tmp = !random ? float(val) : ( int_ ? int(rand()%randmax) : ((float(rand())/RAND_MAX)*randmax));
+		float tmp = 
+			!random ? float(val) 
+			: ( int_ ? int(rand()%randmax) 
+				: (float) (((double)rand()/RAND_MAX)*randmax-double(randmax)/2)
+			  );
 		BOOST_LOG_TRIVIAL(trace) << "MISCINIT: Initializing " << index_tostring(index)
 			<< " element of volume of size " << volume_size(v)
 			<< " with " << tmp;
@@ -105,57 +109,3 @@ std::vector<Volume> generate_stub_weights(size_t size,size_t depth,int filter_nu
   return weights_vector;
 };
 
-Volume concatenate_volumes(std::vector<Volume> input_volumes, cl::sycl::queue q){
-  BOOST_LOG_TRIVIAL(info) << "CONCAT: Concatenating volumes...";
-  int volumes_number=input_volumes.size();
-  BOOST_LOG_TRIVIAL(info) << "CONCAT: Concatenating " << volumes_number << " volumes";
-  
-  size_t output_width=input_volumes[0].get_range().get(0);
-  size_t output_height=input_volumes[0].get_range().get(1);
-  std::vector<size_t> input_depths;
-  for (int i=0; i<volumes_number; i++) {
-    BOOST_LOG_TRIVIAL(trace) << "CONCAT: Volume " << i+1 <<" is of size (" 
-	    << input_volumes[i].get_range().get(0) << ","
-	    << input_volumes[i].get_range().get(1) << ","
-	    << input_volumes[i].get_range().get(2) << ")";
-    input_depths.push_back(input_volumes[i].get_range().get(2));
-  }
-  size_t output_depth=std::accumulate(input_depths.begin(),input_depths.end(),0);
-
-  BOOST_LOG_TRIVIAL(trace) << "CONCAT: Concatenation output is of size ("
-	  << output_width << ","
-	  << output_height << ","
-	  << output_depth <<")";
-
-  
-  std::vector<size_t> offsets(volumes_number);
-  for (int i=0; i<volumes_number; i++) {
-    int offset=std::accumulate(input_depths.begin(), input_depths.begin()+i, 0);
-    BOOST_LOG_TRIVIAL(trace) << "CONCAT: Computed " << i+1 << "^ offset: " << offset;
-    offsets[i]=offset; 
-  } 
-
-
-  Volume concatenated_volume(range<3>(output_width,output_height,output_depth));	
-  
-  for (int i=0; i<volumes_number; i++) {
-    q.submit( [&] (handler &concatenategroup) { 
-	BOOST_LOG_TRIVIAL(trace) << "CONCAT: submitting task " << i+1 << " to queue";
-        auto output_a = concatenated_volume.get_access<access::mode::write>(concatenategroup);
-        auto volumei_a = input_volumes[i].get_access<access::mode::read>(concatenategroup);
-        concatenategroup.parallel_for<class pad>( range<3>(output_width,output_height,input_depths[i]),
-			[=] (id<3> index) {
-			id<3> output_index=index+id<3>(0,0,offsets[i]);
-			BOOST_LOG_TRIVIAL(trace) << "CONCAT: Writing element " << index_tostring(index) 
-				<< " of volume " << i+1
-				<< " (" 
-				<< volumei_a[index]
-				<< ") inside element " << index_tostring(output_index)
-			        << " of output volume.";	
-			output_a[output_index]=volumei_a[index];
-      });
-    });
-  }
-
-  return concatenated_volume;
-}

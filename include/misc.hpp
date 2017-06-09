@@ -12,7 +12,7 @@
 namespace logging = boost::log;
 
 typedef cl::sycl::buffer<float,3> Volume;
-typedef std::vector<Volume> Weights;
+typedef std::vector<Volume> Volumes;
 
 void initialize_volume(Volume& v, cl::sycl::queue q);
 void initialize_volume(Volume& v, float val, cl::sycl::queue q);
@@ -24,7 +24,5 @@ std::string volume_size(const Volume&);
 std::string index_tostring(const cl::sycl::id<3> id);
 
 std::vector<Volume> generate_stub_weights(size_t size,size_t depth,int filter_number, cl::sycl::queue q);
-
-Volume concatenate_volumes(std::vector<Volume>, cl::sycl::queue q);
 
 #endif
