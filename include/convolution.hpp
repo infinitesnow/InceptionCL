@@ -105,4 +105,51 @@ class convolver {
     std::vector<filter> filters_vector;
 };
 
+class concatenator{
+  public:
+    int volumes_number;
+    std::vector<Volume*> input_volumes;
+    std::vector<size_t> input_depths;
+    std::vector<size_t> offsets;
+    size_t output_width;
+    size_t output_height;
+    size_t output_depth;
+    Volume concatenated_volume;	
+
+    concatenator(std::vector<Volume*> input_volumes){
+      BOOST_LOG_TRIVIAL(debug) << "CONCAT: Instantiating concatenator...";
+      this->input_volumes=input_volumes;
+      this->volumes_number=input_volumes.size();
+      BOOST_LOG_TRIVIAL(trace) << "CONCAT: Concatenating " << volumes_number << " volumes";
+      
+      this->output_width=input_volumes[0]->get_range().get(0);
+      this->output_height=input_volumes[0]->get_range().get(1);
+      // Extract depth from each volume; we'll need this to compute offsets and total depth
+      for (int i=0; i<volumes_number;i++) {
+        BOOST_LOG_TRIVIAL(trace) << "CONCAT: Volume "<<i+1<<" is of size (" 
+    	    << input_volumes[i]->get_range().get(0) << ","
+    	    << input_volumes[i]->get_range().get(1) << ","
+    	    << input_volumes[i]->get_range().get(2) << ")";
+        input_depths.push_back(input_volumes[i]->get_range().get(2));
+      };
+      this->output_depth=std::accumulate(input_depths.begin(),input_depths.end(),0);
+    
+      BOOST_LOG_TRIVIAL(trace) << "CONCAT: Concatenation output is of size ("
+    	  << output_width << ","
+    	  << output_height << ","
+    	  << output_depth <<")";
+
+      this->offsets=std::vector<size_t>(volumes_number);
+      for (int i=0; i<volumes_number; i++) {
+        int offset=std::accumulate(input_depths.begin(), input_depths.begin()+i, 0);
+        BOOST_LOG_TRIVIAL(trace) << "CONCAT: Computed " << i+1 << "^ offset: " << offset;
+        offsets[i]=offset;
+      }
+
+      this->concatenated_volume=Volume(cl::sycl::range<3>(output_width,output_height,output_depth));
+    };
+    
+    void concatenate(cl::sycl::queue q);
+};
+
 #endif

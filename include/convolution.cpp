@@ -28,6 +28,7 @@ void filter::operator() (Volume& input, Volume& output, short f, cl::sycl::queue
     cmdgroup.parallel_for<class convolve>( range<3>(output_width,output_height,1), [=] (id<3> base_index) {
             BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 
 	    	<< " ("<<size<<"x"<<size<<"x"<<depth<<")" 
+		<< ", operating on volume " << volume_size(input)
 	    	<< ": entering parallel for"; 
 	    /* 
 	    Input and output spaces have the same dimensions. We are iterating over this space, 
@@ -41,6 +42,7 @@ void filter::operator() (Volume& input, Volume& output, short f, cl::sycl::queue
             id<3> index = id<3>(0,0,0);
             BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 
 	    	<< " ("<<size<<"x"<<size<<"x"<<depth<<")" 
+		<< ", operating on volume " << volume_size(input)
 	    	<< ": Parallel for with base index " << index_tostring(base_index) 
 	    	<< ", offset " << index_tostring(offset) 
 	    	<< ", output index " << index_tostring(output_index); 
@@ -57,6 +59,8 @@ void filter::operator() (Volume& input, Volume& output, short f, cl::sycl::queue
 	          filter_output_a[index]=current_product;
                   result+=current_product;
 	          BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 
+    	                  << " ("<<size<<"x"<<size<<"x"<<depth<<")" 
+		          << ", operating on volume " << volume_size(input)
 			  << ", on base index " << index_tostring(input_index)
 	                  << ": Iteration with index " << index_tostring(index)
 	                  << ", calculating " 
@@ -70,7 +74,7 @@ void filter::operator() (Volume& input, Volume& output, short f, cl::sycl::queue
               index[2]+=1;
             };
             result+=bias;
-    	    output_a[output_index]=result;
+    	    output_a[output_index]=std::max(result,(float)0.0);
 	    BOOST_LOG_TRIVIAL(trace) << "Filter " << f+1 
 		    << ": Result ("<<index_tostring(output_index)<<"): " << result;
            });
@@ -173,3 +177,24 @@ Volume* convolver::pool(){
 
   return &output_volume;
 };
+
+void concatenator::concatenate(cl::sycl::queue q){
+  for (int i=0; i<volumes_number;i++) {
+    q.submit( [&] (handler &concatenategroup) { 
+      BOOST_LOG_TRIVIAL(trace) << "CONCAT: submitting task " << i+1 << " to queue";
+      auto output_a = concatenated_volume.get_access<access::mode::write>(concatenategroup);
+      auto volumei_a = input_volumes[i]->get_access<access::mode::read>(concatenategroup);
+      concatenategroup.parallel_for<class pad>( range<3>(output_width,output_height,input_depths[i]),
+		[=] (id<3> index) {
+		id<3> output_index=index+id<3>(0,0,offsets[i]);
+		BOOST_LOG_TRIVIAL(trace) << "CONCAT: Writing element " << index_tostring(index) 
+			<< " of volume " << i+1
+			<< " (" 
+			<< volumei_a[index]
+			<< ") inside element " << index_tostring(output_index)
+		        << " of output volume.";	
+		output_a[output_index]=volumei_a[index];
+      });
+    });
+  };
+}
