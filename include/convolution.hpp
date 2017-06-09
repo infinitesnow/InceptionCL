@@ -69,13 +69,13 @@ class convolver {
       this->output_volume = Volume(cl::sycl::range<3>(input_width,input_height,filter_number));
       pad_init();
     };
-    void initialize_soft(Volume** input, size_t iw, size_t ih, size_t fn, cl::sycl::queue q){
+    void initialize_soft(Volume** input, size_t iw, size_t ih, size_t previous_fn, cl::sycl::queue q){
       this->is_soft=true;
       this->q= q;
       this->input = input;
       this->input_width = iw; 
       this->input_height = ih;
-      this->input_depth = fn;
+      this->input_depth = previous_fn;
       this->output_volume = Volume(cl::sycl::range<3>(input_width,input_height,filter_number));
       pad_init();
     }

@@ -169,7 +169,7 @@ Volume* convolver::pool(){
            });
   });
 
-  BOOST_LOG_TRIVIAL(debug) << "Pooling output size: " << volume_size(output_volume) << std::endl;
+  BOOST_LOG_TRIVIAL(debug) << "Pooling output size: " << volume_size(output_volume);
 
   return &output_volume;
 };

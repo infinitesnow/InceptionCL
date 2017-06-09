@@ -55,7 +55,7 @@ std::string index_tostring(cl::sycl::id<3> const id){
   return out.str();
 }
 
-inline void initialize_volume_inline(Volume &v, float val, bool random, bool int_, int randmax) {
+inline void initialize_volume_inline(Volume &v, float val, bool random, bool int_, int randmax, cl::sycl::queue q) {
    BOOST_LOG_TRIVIAL(trace) << "MISCINIT: Initializing volume " << volume_size(v) 
 	   << ", random: " << random
 	   << ", integer: " << int_ 
@@ -63,8 +63,6 @@ inline void initialize_volume_inline(Volume &v, float val, bool random, bool int
    size_t width = v.get_range().get(0);
    size_t height = v.get_range().get(1);
    size_t depth = v.get_range().get(2);
-
-   queue q;
 
    q.submit( [&] (handler &cmdgroup) { 
      BOOST_LOG_TRIVIAL(trace) << "MISCINIT: Submitting to queue for volume of size " << volume_size(v);
@@ -80,17 +78,17 @@ inline void initialize_volume_inline(Volume &v, float val, bool random, bool int
    });
 };
 
-void initialize_volume(Volume& v){
-	initialize_volume_inline(v, 0, true, false, 1);
+void initialize_volume(Volume& v, cl::sycl::queue q){
+	initialize_volume_inline(v, 0, true, false, 1, q);
 }
-void initialize_volume(Volume& v, float val){
-	initialize_volume_inline(v, 0, false, false, 1);
+void initialize_volume(Volume& v, float val, cl::sycl::queue q){
+	initialize_volume_inline(v, 0, false, false, 1, q);
 }
-void initialize_volume(Volume& v, bool int_, int randmax){
-	initialize_volume_inline(v, 0, true, int_, randmax);
+void initialize_volume(Volume& v, bool int_, int randmax, cl::sycl::queue q){
+	initialize_volume_inline(v, 0, true, int_, randmax, q);
 }	
 
-std::vector<Volume> generate_stub_weights(size_t size,size_t depth,int filter_number) {
+std::vector<Volume> generate_stub_weights(size_t size,size_t depth,int filter_number, cl::sycl::queue q) {
   BOOST_LOG_TRIVIAL(debug) << "MISC: Generating stub weights for " << filter_number << 
 	  " filters (" << size << "x" << size << "x" << depth << ")...";
 
@@ -98,7 +96,7 @@ std::vector<Volume> generate_stub_weights(size_t size,size_t depth,int filter_nu
   for (int i=0; i<filter_number; i++){
     BOOST_LOG_TRIVIAL(debug) << "MISC: Generating weights for filter " << i;
     Volume w( cl::sycl::range<3>(size,size,depth));      
-    initialize_volume(w);
+    initialize_volume(w,q);
     //std::cout << "Stub weights for filter " << i+1 << ":" <<std::endl;
     //print_volume(w);
     weights_vector.push_back(w);
