@@ -1,7 +1,7 @@
 #include <convolution.hpp>
 
-//#define DEBUG_LEVEL warning 
-#define DEBUG_LEVEL debug 
+#define DEBUG_LEVEL warning 
+//#define DEBUG_LEVEL debug 
 
 void init_boost()
 {
@@ -88,8 +88,6 @@ int main(){
   convolver c4_11(weights_4_11,stride,bias);
   c4_11.initialize_soft(&vol4_t,input_width,input_height,input_depth,q);
 
-  //std::this_thread::sleep_for(std::chrono::seconds(3));
-
   print_header("Launching convolutions");
   vol1=c1_11.convolve();
 
@@ -102,15 +100,10 @@ int main(){
   vol4_t=p4_33.pool();
   vol4=c4_11.convolve();
 
-  print_volume(*vol1);
-  print_volume(*vol2);
-  print_volume(*vol3);
-  print_volume(*vol4);
-  
-  //print_header("Concatenating");
-  //Volume output = concatenate_volumes(Weights{*vol1,*vol2,*vol3,*vol4},q);
-  //print_header("Final output");
-  //print_volume(output);
+  print_header("Concatenating");
+  Volume output = concatenate_volumes(Weights{*vol1,*vol2,*vol3,*vol4},q);
+  print_header("Final output");
+  print_volume(output);
   
   std::cout << "Finished." << std::endl;
   return 0;
