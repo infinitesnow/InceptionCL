@@ -49,23 +49,40 @@ class convolver {
     // Constructor for pooling operations
     convolver(short size, short stride) : size{size}, stride{stride} {
       this->padding = floor(size/2);
+      this->is_pool=true;
     };
 
+    bool is_pool=false;
+    bool is_soft=false;
     short size;
     short stride;
     short padding;
     float bias;
 
-    void initialize(Volume &v, cl::sycl::queue& q){
+    Volume* initialize_hard(Volume& v, cl::sycl::queue& q){
       this->input_volume = v;
       this->q= q;
       this->input_width = input_volume.get_range().get(0);
       this->input_height = input_volume.get_range().get(1);
       this->input_depth = input_volume.get_range().get(2);
+      if (is_pool) filter_number=input_depth;
       this->output_volume = Volume(cl::sycl::range<3>(input_width,input_height,filter_number));
-      pad();
+      pad_init();
+      return &this->output_volume;
     };
+    Volume* initialize_soft(Volume* input, size_t iw, size_t ih, size_t previous_fn, cl::sycl::queue q){
+      this->is_soft=true;
+      this->q= q;
+      this->input = input;
+      this->input_width = iw; 
+      this->input_height = ih;
+      this->input_depth = previous_fn;
+      this->output_volume = Volume(cl::sycl::range<3>(input_width,input_height,filter_number));
+      pad_init();
+      return &this->output_volume;
+    }
     Volume input_volume;
+    Volume* input;
     size_t input_width;
     size_t input_height;
     size_t input_depth;
@@ -81,7 +98,8 @@ class convolver {
     size_t padded_width;
     size_t padded_height;
     size_t padded_depth;
-    void pad();
+    void pad_init();
+    void pad_fill();
 
     int filter_number;
     std::vector<filter> filters_vector;

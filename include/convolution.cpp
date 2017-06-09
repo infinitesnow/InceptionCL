@@ -81,12 +81,64 @@ void filter::operator() (Volume& input, Volume& output, short f, cl::sycl::queue
 
 };
 
-void convolver::pad(){
+void convolver::pad_init(){
   this->padded_width = input_width+2*padding;
   this->padded_height = input_height+2*padding;
   this->padded_depth = input_depth;
+  this->padded_volume = Volume( range<3>(padded_width,padded_height,padded_depth) );
 
-  BOOST_LOG_TRIVIAL(debug) << "Convolver: Padding volume... " << volume_size(input_volume);
+  BOOST_LOG_TRIVIAL(debug) << "Convolver: Initializing padded volume to 0, from " 
+	  << input_width<<"x"<<input_height<<"x"<<input_depth
+	  << " to " 
+	  << input_width<<"x"<<input_height<<"x"<<input_depth;
+
+  initialize_volume(padded_volume,0,q);
+
+};
+
+void convolver::pad_fill(){
+  BOOST_LOG_TRIVIAL(debug) << "Convolver: Filling padded volume";
+  q.submit( [&](handler &cmdgroup) {
+    BOOST_LOG_TRIVIAL(trace) << "Convolver: Submitting padding task to queue ("
+   	 << volume_size(padded_volume) << ")";
+    auto input_a = input_volume.get_access<access::mode::read>(cmdgroup);
+    auto padded_a = padded_volume.get_access<access::mode::write>(cmdgroup);
+    cmdgroup.parallel_for<class refill>( range<3>(input_width,input_height,input_depth),
+      	    [=] (id<3> index) {
+            BOOST_LOG_TRIVIAL(trace) << "Convolver: reinserting element " << input_a[index] << " " 
+	    	<< index_tostring(index)
+	    	<< " into padding volume " << volume_size(padded_volume);
+      	    padded_a[index+id<3>(padding,padding,0)]=input_a[index];
+    });
+  });
+}
+
+Volume* convolver::convolve() {
+
+  BOOST_LOG_TRIVIAL(info) << "Convolver: Convolving ("<<size<<"x"<<size<<") volume of size " 
+	  << input_width<<"x"<<input_height<<"x"<<input_depth << "...";
+
+  if (this->is_soft) input_volume = *input;
+
+  pad_fill();
+
+  for (short f=0;f<filter_number;f++){
+    q.submit( [&](handler &filter_cmdgroup) {
+      BOOST_LOG_TRIVIAL(debug) << "Convolver: Submitting filter " << f+1;
+      filters_vector[f](padded_volume,output_volume,f,q);
+    });
+  };
+
+  return &output_volume;
+};
+
+
+Volume* convolver::pool(){
+  BOOST_LOG_TRIVIAL(info) << "POOL: Pooling...";
+
+  if (this->is_soft) input_volume = *input;
+  
+  pad_fill();
 
   this->padded_volume = Volume( range<3>(padded_width,padded_height,padded_depth) );
   BOOST_LOG_TRIVIAL(debug) << "Convolver: Initializing padding volume " << volume_size(padded_volume)<< " to 0";
@@ -119,16 +171,6 @@ Volume* convolver::convolve() {
     });
   };
 
-  return &output_volume;
-};
-
-
-Volume* convolver::pool(){
-  BOOST_LOG_TRIVIAL(info) << "POOL: Pooling...";
-
-  size_t output_width = input_width;
-  size_t output_height = input_height;
-
   q.submit( [&](handler &cmdgroup) {
     BOOST_LOG_TRIVIAL(trace) << "POOL: submitting task to queue";
     auto input_a = padded_volume.get_access<access::mode::read>(cmdgroup);
@@ -155,7 +197,7 @@ Volume* convolver::pool(){
            });
   });
 
-  BOOST_LOG_TRIVIAL(debug) << "Pooling output size: " << volume_size(output_volume) << std::endl;
+  BOOST_LOG_TRIVIAL(debug) << "Pooling output size: " << volume_size(output_volume);
 
   return &output_volume;
 };
