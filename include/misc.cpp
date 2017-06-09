@@ -1,6 +1,7 @@
 #include <misc.hpp>
 #include <iomanip>
 #include <ctime>
+#include <random>
 
 using namespace cl::sycl;
 
@@ -69,11 +70,14 @@ inline void initialize_volume_inline(Volume &v, float val, bool random, bool int
      auto v_a = v.get_access<access::mode::write>(cmdgroup);
      cmdgroup.parallel_for<class pad>( range<3>(width,height,depth),
          	    [=] (id<3> index) {
-		float tmp = 
-			!random ? float(val) 
-			: ( int_ ? int(rand()%randmax) 
-				: (float) (((double)rand()/RAND_MAX)*randmax-double(randmax)/2)
-			  );
+   		std::random_device rd;
+   		std::mt19937 r(rd());
+   		std::uniform_int_distribution<> rand_dist_int(0,randmax); 
+   		std::uniform_real_distribution<> rand_dist_real(-randmax,randmax); 
+
+		float tmp = !random ? float(val) : ( 
+				int_ ? rand_dist_int(r) : rand_dist_real(r) );
+		
 		BOOST_LOG_TRIVIAL(trace) << "MISCINIT: Initializing " << index_tostring(index)
 			<< " element of volume of size " << volume_size(v)
 			<< " with " << tmp;

@@ -1,9 +1,9 @@
 #include <convolution.hpp>
 
-#define DEBUG_LEVEL warning 
-//#define DEBUG_LEVEL trace 
+//#define DEBUG_LEVEL warning 
+#define DEBUG_LEVEL trace 
 
-void init_boost()
+void boost_init()
 {
     logging::core::get()->set_filter
     (
@@ -19,9 +19,8 @@ inline void print_header(std::string s){
 }
 
 int main(){
-  std::srand(118);
   // Let's initialize Boost logging system
-  init_boost();
+  boost_init();
 
   BOOST_LOG_TRIVIAL(trace) << "Starting main";
 
@@ -48,7 +47,7 @@ int main(){
   const int num2_33=10;
   const int num3_11=6;
   const int num3_55=3;
-  const int num4_11=5; 
+  const int num4_11=2; 
 
 
   /* 

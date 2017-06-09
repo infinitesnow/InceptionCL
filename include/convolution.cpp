@@ -162,49 +162,6 @@ Volume* convolver::pool(){
   });
 };
 
-Volume* convolver::convolve() {
-
-  BOOST_LOG_TRIVIAL(info) << "Convolver: Convolving (" << size << "x" << size  << ") volume of size " 
-	  << volume_size(input_volume) << "...";
-
-  for (short f=0;f<filter_number-1;f++){
-    q.submit( [&](handler &filter_cmdgroup) {
-      BOOST_LOG_TRIVIAL(debug) << "Convolver: Submitting filter " << f+1;
-      filters_vector[f](padded_volume,output_volume,f,q);
-    });
-  };
-
-  q.submit( [&](handler &cmdgroup) {
-    BOOST_LOG_TRIVIAL(trace) << "POOL: submitting task to queue";
-    auto input_a = padded_volume.get_access<access::mode::read>(cmdgroup);
-    auto output_a = output_volume.get_access<access::mode::write>(cmdgroup);
-    
-    cmdgroup.parallel_for<class pool>( range<3>(output_width,output_height,input_depth), [=] (id<3> base_index) {
-		id<3> offset = id<3>(padding,padding,0);
-      	        id<3> input_index=base_index+offset;
-      	        id<3> output_index=base_index;
-                id<3> index = id<3>(0,0,0);
-                BOOST_LOG_TRIVIAL(trace) << "POOL: Parallel for with base index " << index_tostring(base_index); 
-		float max = -1;
-                while ( index[1] < size ){
-                  while ( index[0] < size ){
-                    max=std::max(input_a[input_index+index-offset],max);
-		    BOOST_LOG_TRIVIAL(trace) << "POOL: max is now set to " << max; 
-                    index[0]+=1;
-                  };
-                  index[0]=0;
-                  index[1]+=1;
-                }; 
-	    BOOST_LOG_TRIVIAL(trace) << "POOL: max for this tile is " << max;
-    	    output_a[output_index]=max;
-           });
-  });
-
-  BOOST_LOG_TRIVIAL(debug) << "Pooling output size: " << volume_size(output_volume);
-
-  return &output_volume;
-};
-
 void concatenator::concatenate(cl::sycl::queue q){
   for (int i=0; i<volumes_number;i++) {
     q.submit( [&] (handler &concatenategroup) { 
