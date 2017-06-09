@@ -118,7 +118,7 @@ Volume* convolver::convolve() {
   BOOST_LOG_TRIVIAL(info) << "Convolver: Convolving ("<<size<<"x"<<size<<") volume of size " 
 	  << input_width<<"x"<<input_height<<"x"<<input_depth << "...";
 
-  if (this->is_soft) input_volume = **input;
+  if (this->is_soft) input_volume = *input;
 
   pad_fill();
 
@@ -136,7 +136,7 @@ Volume* convolver::convolve() {
 Volume* convolver::pool(){
   BOOST_LOG_TRIVIAL(info) << "POOL: Pooling...";
 
-  if (this->is_soft) input_volume = **input;
+  if (this->is_soft) input_volume = *input;
   
   pad_fill();
 

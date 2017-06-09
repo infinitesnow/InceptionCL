@@ -66,39 +66,39 @@ int main(){
   print_header("Initializing convolvers");
   Weights weights_1_11 = generate_stub_weights(1,input_depth,num1_11,q);
   convolver c1_11(weights_1_11,stride,bias);
-  c1_11.initialize_hard(input_volume,q);
+  vol1=c1_11.initialize_hard(input_volume,q);
 
   Weights weights_2_11 = generate_stub_weights(1,input_depth,num2_11,q);
   convolver c2_11(weights_2_11,stride,bias);
-  c2_11.initialize_hard(input_volume,q);
+  vol2_t=c2_11.initialize_hard(input_volume,q);
   Weights weights_2_33 = generate_stub_weights(3,num2_11,num2_33,q);
   convolver c2_33(weights_2_33,stride,bias);
-  c2_33.initialize_soft(&vol2_t,input_width,input_height,num2_11,q);
+  vol2=c2_33.initialize_soft(vol2_t,input_width,input_height,num2_11,q);
   
   Weights weights_3_11 = generate_stub_weights(1,input_depth,num3_11,q);
   convolver c3_11(weights_3_11,stride,bias);
-  c3_11.initialize_hard(input_volume,q);
+  vol3_t=c3_11.initialize_hard(input_volume,q);
   Weights weights_3_55 = generate_stub_weights(5,num3_11,num3_55,q);
   convolver c3_55(weights_3_55,stride,bias);
-  c3_55.initialize_soft(&vol3_t,input_width,input_height,num3_11,q);
+  vol3=c3_55.initialize_soft(vol3_t,input_width,input_height,num3_11,q);
 
   convolver p4_33(3,1);
-  p4_33.initialize_hard(input_volume,q);
+  vol4_t=p4_33.initialize_hard(input_volume,q);
   Weights weights_4_11 = generate_stub_weights(1,input_depth,num4_11,q);
   convolver c4_11(weights_4_11,stride,bias);
-  c4_11.initialize_soft(&vol4_t,input_width,input_height,input_depth,q);
+  vol4=c4_11.initialize_soft(vol4_t,input_width,input_height,input_depth,q);
 
   print_header("Launching convolutions");
-  vol1=c1_11.convolve();
+  c1_11.convolve();
 
-  vol2_t=c2_11.convolve();
-  vol2=c2_33.convolve();
+  c2_11.convolve();
+  c2_33.convolve();
 
-  vol3_t=c3_11.convolve();
-  vol3=c3_55.convolve();
+  c3_11.convolve();
+  c3_55.convolve();
 
-  vol4_t=p4_33.pool();
-  vol4=c4_11.convolve();
+  p4_33.pool();
+  c4_11.convolve();
 
   print_header("Concatenating");
   Volume output = concatenate_volumes(Weights{*vol1,*vol2,*vol3,*vol4},q);

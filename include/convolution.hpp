@@ -59,7 +59,7 @@ class convolver {
     short padding;
     float bias;
 
-    void initialize_hard(Volume &v, cl::sycl::queue& q){
+    Volume* initialize_hard(Volume& v, cl::sycl::queue& q){
       this->input_volume = v;
       this->q= q;
       this->input_width = input_volume.get_range().get(0);
@@ -68,8 +68,9 @@ class convolver {
       if (is_pool) filter_number=input_depth;
       this->output_volume = Volume(cl::sycl::range<3>(input_width,input_height,filter_number));
       pad_init();
+      return &this->output_volume;
     };
-    void initialize_soft(Volume** input, size_t iw, size_t ih, size_t previous_fn, cl::sycl::queue q){
+    Volume* initialize_soft(Volume* input, size_t iw, size_t ih, size_t previous_fn, cl::sycl::queue q){
       this->is_soft=true;
       this->q= q;
       this->input = input;
@@ -78,9 +79,10 @@ class convolver {
       this->input_depth = previous_fn;
       this->output_volume = Volume(cl::sycl::range<3>(input_width,input_height,filter_number));
       pad_init();
+      return &this->output_volume;
     }
     Volume input_volume;
-    Volume** input;
+    Volume* input;
     size_t input_width;
     size_t input_height;
     size_t input_depth;
