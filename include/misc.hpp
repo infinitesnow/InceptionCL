@@ -25,6 +25,6 @@ std::string index_tostring(const cl::sycl::id<3> id);
 
 std::vector<Volume> generate_stub_weights(size_t size,size_t depth,int filter_number);
 
-Volume concatenate_volumes(std::vector<Volume>);
+Volume concatenate_volumes(std::vector<Volume>, cl::sycl::queue q);
 
 #endif

@@ -107,7 +107,7 @@ std::vector<Volume> generate_stub_weights(size_t size,size_t depth,int filter_nu
   return weights_vector;
 };
 
-Volume concatenate_volumes(std::vector<Volume> input_volumes){
+Volume concatenate_volumes(std::vector<Volume> input_volumes, cl::sycl::queue q){
   BOOST_LOG_TRIVIAL(info) << "CONCAT: Concatenating volumes...";
   int volumes_number=input_volumes.size();
   BOOST_LOG_TRIVIAL(info) << "CONCAT: Concatenating " << volumes_number << " volumes";
@@ -140,7 +140,6 @@ Volume concatenate_volumes(std::vector<Volume> input_volumes){
 
   Volume concatenated_volume(range<3>(output_width,output_height,output_depth));	
   
-  queue q;
   for (int i=0; i<volumes_number; i++) {
     q.submit( [&] (handler &concatenategroup) { 
 	BOOST_LOG_TRIVIAL(trace) << "CONCAT: submitting task " << i+1 << " to queue";
